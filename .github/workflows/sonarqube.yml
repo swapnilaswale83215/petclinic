@@ -1,5 +1,5 @@
-# This workflow runs SonarQube code quality analysis using Maven plugin
-# For more information see: https://docs.sonarqube.org/latest/analyzing-source-code/scanners/sonarscanner-for-maven/
+# This workflow runs SonarQube code quality analysis using SonarCloud
+# For more information see: https://docs.sonarcloud.io/
 
 name: SonarQube Code Quality
 
@@ -27,20 +27,19 @@ jobs:
           distribution: 'adopt'
           cache: maven
 
-      - name: Build and SonarQube Analysis
+      - name: Build and SonarCloud Analysis
         run: |
           ./mvnw -B clean verify \
-            -Dsonar.host.url=${{ secrets.SONAR_HOST_URL }} \
+            -Dsonar.host.url=https://sonarcloud.io \
             -Dsonar.login=${{ secrets.SONAR_TOKEN }} \
+            -Dsonar.organization=${{ secrets.SONAR_ORG }} \
             -Dsonar.projectKey=petclinic \
-            -Dsonar.projectName=PetClinic \
             sonar:sonar
         env:
-          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
       - name: Display SonarQube Results
         if: always()
         run: |
           echo "SonarQube Analysis Complete!"
-          echo "Dashboard: ${{ secrets.SONAR_HOST_URL }}/dashboard?id=petclinic"
+          echo "Dashboard: https://sonarcloud.io/project/overview?id=petclinic"
