@@ -118,4 +118,49 @@ class VisitControllerTests {
 			.andExpect(view().name("pets/createOrUpdateVisitForm"));
 	}
 
+	@Test
+	void processNewVisitFormHasErrorsWhenDescriptionIsTooShort() throws Exception {
+		mockMvc
+			.perform(post("/owners/{ownerId}/pets/{petId}/visits/new", TEST_OWNER_ID, TEST_PET_ID)
+				.param("name", "George")
+				.param("date", LocalDate.now().plusDays(1).toString())
+				.param("description", "abcd"))
+			.andExpect(model().attributeHasFieldErrorCode("visit", "description", "Pattern"))
+			.andExpect(status().isOk())
+			.andExpect(view().name("pets/createOrUpdateVisitForm"));
+	}
+
+	@Test
+	void processNewVisitFormHasErrorsWhenDescriptionIsShortAfterTrimming() throws Exception {
+		mockMvc
+			.perform(post("/owners/{ownerId}/pets/{petId}/visits/new", TEST_OWNER_ID, TEST_PET_ID)
+				.param("name", "George")
+				.param("date", LocalDate.now().plusDays(1).toString())
+				.param("description", "  abcd  "))
+			.andExpect(model().attributeHasFieldErrorCode("visit", "description", "Pattern"))
+			.andExpect(status().isOk());
+	}
+
+	@Test
+	void processNewVisitFormHasRequiredErrorWhenDescriptionIsBlank() throws Exception {
+		mockMvc
+			.perform(post("/owners/{ownerId}/pets/{petId}/visits/new", TEST_OWNER_ID, TEST_PET_ID)
+				.param("name", "George")
+				.param("date", LocalDate.now().plusDays(1).toString())
+				.param("description", "     "))
+			.andExpect(model().attributeHasFieldErrorCode("visit", "description", "NotBlank"))
+			.andExpect(status().isOk());
+	}
+
+	@Test
+	void processNewVisitFormSucceedsWhenDescriptionHasExactlyMinimumLength() throws Exception {
+		mockMvc
+			.perform(post("/owners/{ownerId}/pets/{petId}/visits/new", TEST_OWNER_ID, TEST_PET_ID)
+				.param("name", "George")
+				.param("date", LocalDate.now().plusDays(1).toString())
+				.param("description", "abcde"))
+			.andExpect(status().is3xxRedirection())
+			.andExpect(view().name("redirect:/owners/{ownerId}"));
+	}
+
 }

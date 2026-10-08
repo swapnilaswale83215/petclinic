@@ -24,6 +24,7 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 /**
@@ -41,6 +42,8 @@ public class Visit extends BaseEntity {
 	private LocalDate date;
 
 	@NotBlank
+	// Blank values pass here so @NotBlank alone reports them.
+	@Pattern(regexp = "(?s)\s*|\s*\S.{3,}\S\s*")
 	@Size(max = 255)
 	private String description;
 
