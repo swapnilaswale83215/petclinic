@@ -1,0 +1,66 @@
+{
+  "controls": "java-maven-spring",
+  "version": "1.0.0",
+  "launchpad_url": "http://localhost:8000",
+  "token_env": "CODERIG_TOKEN",
+  "ignore_paths": [
+    ".coderig/",
+    ".claude/",
+    ".cursor/",
+    "CLAUDE.md",
+    "AGENTS.md",
+    ".mcp.json",
+    ".github/workflows/coderig-gate.yml"
+  ],
+  "runtime": {
+    "docker": {
+      "image": "maven:3.9-eclipse-temurin-21",
+      "workdir": "/work",
+      "cache": {
+        "volume": "coderig-m2",
+        "path": "/root/.m2"
+      }
+    }
+  },
+  "sensors": [
+    {
+      "id": "TESTS",
+      "title": "Unit and slice tests",
+      "kind": "computational",
+      "when": "stop",
+      "run": "mvn -B test -Dspring-javaformat.skip=true -Dtest=!MySqlIntegrationTests,!PostgresIntegrationTests",
+      "blocking": true,
+      "timeout_sec": 900,
+      "feedback": "Tests failed. Read the failing test names and assertion messages above, fix the code (or the test only if the test is wrong), and re-run. A new user-facing message key must be added to every messages_*.properties file, not only messages.properties.\n",
+      "test_globs": []
+    },
+    {
+      "id": "FORMAT",
+      "title": "Spring Java Format",
+      "kind": "computational",
+      "when": "stop",
+      "run": "mvn -B -q spring-javaformat:validate",
+      "blocking": true,
+      "timeout_sec": 300,
+      "feedback": "Formatting violations. This project uses Spring Java Format (tabs). Run `mvn spring-javaformat:apply` and re-check; do not hand-format.\n",
+      "test_globs": []
+    },
+    {
+      "id": "TEST-QUALITY",
+      "title": "Test quality review",
+      "kind": "inferential",
+      "when": "stop-after-pass",
+      "run": "",
+      "agent": "test-quality-reviewer",
+      "blocking": true,
+      "timeout_sec": 150,
+      "feedback": "The tests pass but do not cover every rule this change introduces. Add the missing scenarios listed above, then finish again.\n",
+      "max_runs": 1,
+      "test_globs": []
+    }
+  ],
+  "loop": {
+    "max_iterations": 3,
+    "on_exhausted": "ask-developer"
+  }
+}
