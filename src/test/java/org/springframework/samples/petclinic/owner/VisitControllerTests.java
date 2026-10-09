@@ -16,7 +16,10 @@
 
 package org.springframework.samples.petclinic.owner;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.model;
@@ -50,6 +53,10 @@ class VisitControllerTests {
 
 	private static final int TEST_PET_ID = 1;
 
+	private static final int OTHER_PET_ID = 2;
+
+	private static final LocalDate EXISTING_VISIT_DATE = LocalDate.now().plusDays(10);
+
 	@Autowired
 	private MockMvc mockMvc;
 
@@ -62,6 +69,17 @@ class VisitControllerTests {
 		Pet pet = new Pet();
 		owner.addPet(pet);
 		pet.setId(TEST_PET_ID);
+		Visit existingVisit = new Visit();
+		existingVisit.setDate(EXISTING_VISIT_DATE);
+		existingVisit.setDescription("Existing visit");
+		pet.addVisit(existingVisit);
+		Visit laterVisit = new Visit();
+		laterVisit.setDate(EXISTING_VISIT_DATE.plusDays(5));
+		laterVisit.setDescription("Later visit");
+		pet.addVisit(laterVisit);
+		Pet otherPet = new Pet();
+		owner.addPet(otherPet);
+		otherPet.setId(OTHER_PET_ID);
 		given(this.owners.findById(TEST_OWNER_ID)).willReturn(Optional.of(owner));
 	}
 
@@ -161,6 +179,52 @@ class VisitControllerTests {
 				.param("description", "abcde"))
 			.andExpect(status().is3xxRedirection())
 			.andExpect(view().name("redirect:/owners/{ownerId}"));
+	}
+
+	@Test
+	void processNewVisitFormHasErrorsWhenPetAlreadyHasVisitOnDate() throws Exception {
+		mockMvc
+			.perform(post("/owners/{ownerId}/pets/{petId}/visits/new", TEST_OWNER_ID, TEST_PET_ID)
+				.param("date", EXISTING_VISIT_DATE.toString())
+				.param("description", "Second visit"))
+			.andExpect(model().attributeHasFieldErrorCode("visit", "date", "duplicate.visitDate"))
+			.andExpect(model().attributeErrorCount("visit", 1))
+			.andExpect(status().isOk())
+			.andExpect(view().name("pets/createOrUpdateVisitForm"));
+		verify(this.owners, never()).save(any());
+	}
+
+	@Test
+	void processNewVisitFormHasErrorsWhenPetAlreadyHasLaterVisitOnDate() throws Exception {
+		mockMvc
+			.perform(post("/owners/{ownerId}/pets/{petId}/visits/new", TEST_OWNER_ID, TEST_PET_ID)
+				.param("date", EXISTING_VISIT_DATE.plusDays(5).toString())
+				.param("description", "Second visit"))
+			.andExpect(model().attributeHasFieldErrorCode("visit", "date", "duplicate.visitDate"))
+			.andExpect(status().isOk());
+		verify(this.owners, never()).save(any());
+	}
+
+	@Test
+	void processNewVisitFormSucceedsWhenOtherPetOfSameOwnerHasVisitOnDate() throws Exception {
+		mockMvc
+			.perform(post("/owners/{ownerId}/pets/{petId}/visits/new", TEST_OWNER_ID, OTHER_PET_ID)
+				.param("date", EXISTING_VISIT_DATE.toString())
+				.param("description", "Other pet visit"))
+			.andExpect(status().is3xxRedirection())
+			.andExpect(view().name("redirect:/owners/{ownerId}"));
+		verify(this.owners).save(any());
+	}
+
+	@Test
+	void processNewVisitFormSucceedsWhenSamePetBooksDifferentDate() throws Exception {
+		mockMvc
+			.perform(post("/owners/{ownerId}/pets/{petId}/visits/new", TEST_OWNER_ID, TEST_PET_ID)
+				.param("date", EXISTING_VISIT_DATE.plusDays(1).toString())
+				.param("description", "Another day"))
+			.andExpect(status().is3xxRedirection())
+			.andExpect(view().name("redirect:/owners/{ownerId}"));
+		verify(this.owners).save(any());
 	}
 
 }

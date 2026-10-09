@@ -100,6 +100,9 @@ class VisitController {
 		if (visit.getDate() != null && !visit.getDate().isAfter(LocalDate.now())) {
 			result.rejectValue("date", "typeMismatch.visitDate");
 		}
+		else if (visit.getDate() != null && hasOtherVisitOn(owner.getPet(petId), visit)) {
+			result.rejectValue("date", "duplicate.visitDate");
+		}
 
 		if (result.hasErrors()) {
 			return "pets/createOrUpdateVisitForm";
@@ -109,6 +112,12 @@ class VisitController {
 		this.owners.save(owner);
 		redirectAttributes.addFlashAttribute("message", "Your visit has been booked");
 		return "redirect:/owners/{ownerId}";
+	}
+
+	// loadPetWithVisit already added newVisit to the pet, so it must be skipped by
+	// identity
+	private static boolean hasOtherVisitOn(Pet pet, Visit newVisit) {
+		return pet.getVisits().stream().anyMatch(v -> v != newVisit && newVisit.getDate().equals(v.getDate()));
 	}
 
 }
