@@ -224,7 +224,7 @@ class ClinicServiceTests {
 		Pet pet7 = owner6.getPet(7);
 		int found = pet7.getVisits().size();
 		Visit visit = new Visit();
-		visit.setDescription("test");
+		visit.setDescription("test visit");
 
 		owner6.addVisit(pet7.getId(), visit);
 		this.owners.save(owner6);
