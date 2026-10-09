@@ -43,7 +43,7 @@ public class Visit extends BaseEntity {
 
 	@NotBlank
 	// Blank values pass here so @NotBlank alone reports them.
-	@Pattern(regexp = "(?s)\s*|\s*\S.{3,}\S\s*")
+	@Pattern(regexp = "(?s)\\s*|\\s*\\S.{3,}\\S\\s*")
 	@Size(max = 255)
 	private String description;
 
