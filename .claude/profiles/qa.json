@@ -1,0 +1,19 @@
+{
+  "_role": "qa",
+  "mcpServers": {
+    "omnicontext": {
+      "type": "http",
+      "url": "http://localhost:8080/mcp"
+    },
+    "retrosync": {
+      "type": "http",
+      "url": "http://localhost:8085/mcp"
+    }
+  },
+  "permissions": {
+    "allow": [
+      "Edit(tests/**)",
+      "Edit(docs/**)"
+    ]
+  }
+}

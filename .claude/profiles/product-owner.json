@@ -1,0 +1,18 @@
+{
+  "_role": "product-owner",
+  "mcpServers": {
+    "omnicontext": {
+      "type": "http",
+      "url": "http://localhost:8080/mcp"
+    },
+    "retrosync": {
+      "type": "http",
+      "url": "http://localhost:8085/mcp"
+    }
+  },
+  "permissions": {
+    "allow": [
+      "Edit(docs/**)"
+    ]
+  }
+}

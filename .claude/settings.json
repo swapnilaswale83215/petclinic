@@ -1,0 +1,34 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python -c \"import os, runpy, sys; p = os.path.join(os.environ.get('CLAUDE_PROJECT_DIR', '.'), '.coderig', 'guard.py'); sys.argv = [p]; runpy.run_path(p, run_name='__main__')\""
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python -c \"import os, runpy, sys; p = os.path.join(os.environ.get('CLAUDE_PROJECT_DIR', '.'), '.coderig', 'verify.py'); sys.argv = [p, '--stop']; runpy.run_path(p, run_name='__main__')\"",
+            "timeout": 1410
+          }
+        ]
+      }
+    ]
+  },
+  "env": {
+    "ANTHROPIC_BASE_URL": "http://localhost:4000"
+  },
+  "enabledMcpjsonServers": [
+    "omnicontext",
+    "retrosync",
+    "github"
+  ]
+}
