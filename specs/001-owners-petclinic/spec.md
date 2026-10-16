@@ -12,175 +12,168 @@
 
 ### User Story 1 - Register a New Owner (Priority: P1)
 
-A clinic receptionist registers a new pet owner in the system by providing the owner's first name, last name, address, city, and a 10-digit telephone number. Once submitted, the owner record is saved and the receptionist is redirected to the owner's detail page.
+A clinic receptionist registers a new pet owner by entering their first name, last name, address, city, and telephone number. The system validates all required fields and persists the owner record, then redirects to the owner's detail page.
 
-**Why this priority**: Owner registration is the foundational entry point for all downstream clinic activity. No pet can be registered, no visit can be scheduled, and no veterinary history can be tracked without a valid owner record. This is the highest-value slice of the feature.
+**Why this priority**: Owner registration is the foundational entry point for all downstream clinic activity — no pets can be registered, no visits can be scheduled, and no records can be maintained without a valid owner on file. Every other owner-related story depends on this capability existing first.
 
-**Independent Test**: Can be fully tested by navigating to the new owner form, submitting valid data, and verifying the owner detail page displays the saved information — delivering a complete, usable owner record with no other stories required.
+**Independent Test**: Can be fully tested by navigating to `/owners/new`, submitting a valid form, and verifying the owner detail page is displayed with the correct data. Delivers a complete, usable owner record with no other stories required.
 
 **Acceptance Scenarios**:
 
-1. **Given** the receptionist is on the new owner form, **When** they submit a first name, last name, a valid address (≤255 characters), a valid city (≤80 characters), and a 10-digit telephone number, **Then** the owner record is persisted and the receptionist is redirected to the owner's detail page showing all submitted fields.
-2. **Given** the receptionist submits the form with a telephone number that is not exactly 10 digits (e.g., letters, fewer or more digits), **When** the form is submitted, **Then** the form is re-displayed with a field-level validation error on the telephone field and no record is saved.
-3. **Given** the receptionist submits the form with a blank address or city, **When** the form is submitted, **Then** the form is re-displayed with field-level validation errors on the blank fields and no record is saved.
-4. **Given** the receptionist submits the form with an address exceeding 255 characters or a city exceeding 80 characters, **When** the form is submitted, **Then** the form is re-displayed with a field-level validation error on the oversized field and no record is saved.
-5. **Given** the form is submitted, **When** the system processes the request, **Then** the `id` field is not accepted from the form payload, preventing client-side ID tampering.
+1. **Given** a receptionist is on the new owner form at `/owners/new`, **When** they submit first name, last name, a valid address (≤255 characters), a valid city (≤80 characters), and a 10-digit telephone number, **Then** the owner is persisted and the receptionist is redirected to the new owner's detail page showing all entered data.
+2. **Given** a receptionist submits the new owner form with a telephone number that is not exactly 10 digits, **When** the form is submitted, **Then** the form is re-displayed with a field-level validation error on the telephone field and no owner record is created.
+3. **Given** a receptionist submits the new owner form with the address field exceeding 255 characters, **When** the form is submitted, **Then** the form is re-displayed with a field-level validation error on the address field and no owner record is created.
+4. **Given** a receptionist submits the new owner form with the city field exceeding 80 characters, **When** the form is submitted, **Then** the form is re-displayed with a field-level validation error on the city field and no owner record is created.
+5. **Given** a receptionist submits the new owner form with any mandatory field left blank, **When** the form is submitted, **Then** the form is re-displayed with a field-level validation error on each blank field and no owner record is created.
 
 ---
 
 ### User Story 2 - Search for an Existing Owner (Priority: P1)
 
-A clinic receptionist searches for an owner by last name to locate their record before adding a pet or scheduling a visit. The search returns a paginated list of matching owners. If only one match is found, the system navigates directly to that owner's detail page.
+A clinic receptionist searches for an owner by last name to locate their record before a visit or to update their details. The system returns a paginated list of matching owners or redirects directly to the owner detail page when exactly one match is found.
 
-**Why this priority**: Owner lookup is required before any pet or visit operation can proceed. Without search, the clinic cannot service returning customers. This story is equally foundational to registration and must be delivered together with it for the feature to be usable.
+**Why this priority**: Owner lookup is required before any pet or visit operation can proceed. Without reliable search, staff cannot locate existing records and would be forced to create duplicates, corrupting clinic data.
 
-**Independent Test**: Can be fully tested by entering a partial or full last name in the search form and verifying the results list or direct redirect — delivering a complete owner lookup workflow independently of registration or editing.
+**Independent Test**: Can be fully tested by navigating to `/owners`, entering a partial or full last name, and verifying the results list or direct redirect. Delivers immediate value as a standalone lookup tool.
 
 **Acceptance Scenarios**:
 
-1. **Given** one or more owners exist with a last name starting with the search term, **When** the receptionist submits a last name search, **Then** a paginated list of matching owners is displayed showing each owner's name, address, city, telephone, and their registered pets.
-2. **Given** exactly one owner matches the search term, **When** the receptionist submits the search, **Then** the system redirects directly to that owner's detail page.
-3. **Given** no owners match the search term, **When** the receptionist submits the search, **Then** the results page displays a message indicating no owners were found.
-4. **Given** the receptionist submits the search form with a blank last name, **When** the form is submitted, **Then** all owners are returned in a paginated list (broadest search).
-5. **Given** the receptionist enters a last name with leading or trailing whitespace, **When** the form is submitted, **Then** the whitespace is stripped before querying and results are equivalent to the trimmed search term.
-6. **Given** the results span multiple pages, **When** the receptionist navigates between pages, **Then** each page displays the correct subset of matching owners without duplicates or omissions.
+1. **Given** one or more owners exist with a matching last name, **When** a receptionist searches by that last name, **Then** a paginated list of matching owners is displayed showing each owner's name, address, city, and telephone number.
+2. **Given** exactly one owner matches the search term, **When** the search is submitted, **Then** the receptionist is redirected directly to that owner's detail page without an intermediate list.
+3. **Given** no owners match the search term, **When** the search is submitted, **Then** the results page is displayed with an empty list and an appropriate message indicating no owners were found.
+4. **Given** a receptionist submits the search form with no last name entered (blank), **When** the search is submitted, **Then** all owners are returned in a paginated list.
+5. **Given** a receptionist enters a last name with leading or trailing whitespace, **When** the search is submitted, **Then** the whitespace is stripped and results are returned as if the trimmed value had been entered.
 
 ---
 
 ### User Story 3 - View Owner Details (Priority: P1)
 
-A clinic receptionist views the full detail page for a specific owner, including their contact information and a list of all registered pets with each pet's type, birth date, and visit history.
+A clinic receptionist views the full detail page for a specific owner, including their contact information and the list of their registered pets with each pet's type, birth date, and visit history.
 
-**Why this priority**: The owner detail page is the central hub from which all pet and visit management actions are initiated. It must be available as soon as an owner record exists.
+**Why this priority**: The owner detail page is the central hub from which all pet and visit management actions are initiated. It must be reliable and complete before pet registration or visit scheduling can be used effectively.
 
-**Independent Test**: Can be fully tested by navigating directly to an owner's detail page via their ID and verifying all owner fields and associated pets are displayed correctly.
+**Independent Test**: Can be fully tested by navigating to `/owners/{id}` for an existing owner and verifying all owner fields and associated pets are displayed correctly. Delivers a complete read-only view of the owner record.
 
 **Acceptance Scenarios**:
 
-1. **Given** an owner record exists with one or more pets, **When** the receptionist navigates to the owner's detail page, **Then** the page displays the owner's first name, last name, address, city, telephone, and a list of pets ordered by name, each showing pet type, birth date, and visit history.
-2. **Given** an owner record exists with no pets, **When** the receptionist navigates to the owner's detail page, **Then** the page displays the owner's contact information and an empty pets section.
-3. **Given** an owner ID that does not exist in the system, **When** the receptionist navigates to that owner's detail page, **Then** the system returns an appropriate error response and does not expose sensitive data in error messages or stack traces.
+1. **Given** an owner exists with one or more registered pets, **When** a receptionist navigates to that owner's detail page, **Then** the page displays the owner's name, address, city, telephone number, and a list of all pets ordered by name, each showing pet type, birth date, and visit history.
+2. **Given** an owner exists with no registered pets, **When** a receptionist navigates to that owner's detail page, **Then** the page displays the owner's contact information and an empty pets section.
+3. **Given** a receptionist navigates to `/owners/{id}` with an ID that does not correspond to any owner, **When** the page is requested, **Then** an appropriate error response is returned indicating the owner was not found.
 
 ---
 
-### User Story 4 - Update an Existing Owner (Priority: P2)
+### User Story 4 - Update an Existing Owner's Information (Priority: P2)
 
-A clinic receptionist updates the contact information for an existing owner — for example, correcting a telephone number or updating an address after the owner moves.
+A clinic receptionist updates the contact details of an existing owner — for example, correcting a telephone number or updating an address after a move — using the owner edit form.
 
-**Why this priority**: Owner data changes over time and must be kept accurate for the clinic to contact owners. This is important but not blocking for initial registration and lookup workflows.
+**Why this priority**: Owner contact information changes over time. Without an update capability, records become stale and the clinic cannot reliably contact owners. This is important but depends on owner registration (P1) being in place first.
 
-**Independent Test**: Can be fully tested by loading the edit form for an existing owner, submitting updated valid data, and verifying the owner detail page reflects the changes.
+**Independent Test**: Can be fully tested by navigating to `/owners/{id}/edit` for an existing owner, modifying one or more fields, submitting the form, and verifying the detail page reflects the updated values.
 
 **Acceptance Scenarios**:
 
-1. **Given** an existing owner record, **When** the receptionist submits the edit form with updated valid contact information, **Then** the owner record is updated and the receptionist is redirected to the owner's detail page showing the new values.
-2. **Given** the receptionist submits the edit form with an invalid telephone number (not exactly 10 digits), **When** the form is submitted, **Then** the form is re-displayed with a field-level validation error on the telephone field and the existing record is not modified.
-3. **Given** the receptionist submits the edit form with a blank address or city, **When** the form is submitted, **Then** the form is re-displayed with field-level validation errors and the existing record is not modified.
-4. **Given** the edit form is submitted, **When** the system processes the request, **Then** the `id` field is not accepted from the form payload, preventing client-side ID tampering.
-5. **Given** an owner ID that does not exist, **When** an update is attempted for that ID, **Then** the system returns an appropriate error and does not create a new record.
+1. **Given** an existing owner record, **When** a receptionist submits the edit form with valid updated values for address, city, or telephone, **Then** the changes are persisted and the receptionist is redirected to the owner's detail page showing the updated information.
+2. **Given** a receptionist submits the edit form with an invalid telephone number (not exactly 10 digits), **When** the form is submitted, **Then** the form is re-displayed with a field-level validation error on the telephone field and the original record is unchanged.
+3. **Given** a receptionist submits the edit form with an address exceeding 255 characters, **When** the form is submitted, **Then** the form is re-displayed with a field-level validation error on the address field and the original record is unchanged.
+4. **Given** a receptionist attempts to manipulate the owner ID via the form submission, **When** the form is submitted, **Then** the ID field is ignored and the update is applied only to the owner identified by the URL path variable.
 
 ---
 
-### User Story 5 - Add Optional Email Address to Owner (Priority: P2)
+### User Story 5 - Add an Optional Email Address to an Owner Record (Priority: P2)
 
-A clinic receptionist optionally records an email address for an owner during registration or when updating an existing owner record. The email address is displayed on the owner detail page when present.
+A clinic receptionist optionally records an email address for an owner when creating or updating their record, enabling the clinic to contact owners by email in addition to telephone.
 
-**Why this priority**: Email contact is increasingly important for appointment reminders and clinic communications. It is optional and does not block core owner management, but adds meaningful value for clinic operations.
+**Why this priority**: Email is a common and expected contact channel. Making it optional ensures backward compatibility with existing records while enabling richer communication options. Depends on owner registration and update (P1, P2) being in place.
 
-**Independent Test**: Can be fully tested by submitting the owner form with a valid email address and verifying it is persisted and displayed on the detail page, and separately by submitting an invalid email and verifying the field-level error.
+**Independent Test**: Can be fully tested by submitting the owner create or edit form with a valid email address and verifying it is displayed on the owner detail page, then submitting with an invalid email and verifying the field-level error appears.
 
 **Acceptance Scenarios**:
 
-1. **Given** the receptionist submits the owner form with a valid email address (properly formatted, ≤255 characters), **When** the form is submitted, **Then** the email is persisted and displayed on the owner detail page.
-2. **Given** the receptionist submits the owner form without an email address, **When** the form is submitted, **Then** the owner record is saved successfully with no email value and the detail page does not display an email field or displays it as empty.
-3. **Given** the receptionist submits the owner form with an email address that is not a valid email format, **When** the form is submitted, **Then** the form is re-displayed with a field-level validation error on the email field and no record is saved or updated.
-4. **Given** the receptionist submits the owner form with an email address exceeding 255 characters, **When** the form is submitted, **Then** the form is re-displayed with a field-level validation error on the email field.
-5. **Given** existing sample data does not include email addresses, **When** the application starts with any supported database profile (H2, MySQL, PostgreSQL), **Then** the sample data loads without error and existing owner records display without an email value.
+1. **Given** a receptionist is on the owner create or edit form, **When** they submit a valid email address of at most 255 characters, **Then** the email is persisted and displayed on the owner detail page.
+2. **Given** a receptionist submits the owner form with an email address that is not in a valid email format, **When** the form is submitted, **Then** the form is re-displayed with a field-level validation error on the email field and no change is persisted.
+3. **Given** a receptionist submits the owner form with an email address exceeding 255 characters, **When** the form is submitted, **Then** the form is re-displayed with a field-level validation error on the email field.
+4. **Given** a receptionist submits the owner form without entering an email address, **When** the form is submitted, **Then** the owner record is created or updated successfully with no email stored, and no validation error is shown for the email field.
+5. **Given** existing owner sample data that does not include email addresses, **When** the application starts on any supported database profile (H2, MySQL, PostgreSQL), **Then** the sample data loads without error and existing owner records are displayed correctly without an email value.
 
 ---
 
-### User Story 6 - Prevent Duplicate Visit Booking for the Same Pet on the Same Date (Priority: P3)
+### User Story 6 - Prevent Duplicate Visit Bookings for the Same Pet on the Same Date (Priority: P2)
 
-A clinic receptionist attempts to book a second visit for a pet on a date that already has a visit scheduled. The system rejects the duplicate booking with a clear validation error while allowing the same date to be booked for a different pet belonging to the same owner.
+A clinic receptionist attempts to schedule a second visit for a pet on a date that already has a visit booked for that pet. The system rejects the duplicate booking while still allowing a different pet belonging to the same owner to be booked on that same date.
 
-**Why this priority**: Duplicate visit prevention protects data integrity and prevents scheduling conflicts, but it is an enhancement to the visit booking flow rather than a core owner management capability.
+**Why this priority**: Duplicate visit bookings create scheduling conflicts and corrupt visit history. This rule protects data integrity for the visit record, which is append-only and must not contain conflicting entries for the same pet on the same day.
 
-**Independent Test**: Can be fully tested by booking a visit for a pet on a specific future date, then attempting to book a second visit for the same pet on the same date and verifying the rejection, while confirming a different pet under the same owner can book that date successfully.
+**Independent Test**: Can be fully tested by booking a visit for a pet on a future date, then attempting to book a second visit for the same pet on the same date and verifying the rejection, then booking a different pet on that same date and verifying success.
 
 **Acceptance Scenarios**:
 
-1. **Given** a pet already has a visit booked for a specific future date, **When** a second visit is submitted for the same pet on that same date, **Then** the form is re-displayed with a validation error on the date field and no duplicate visit is created.
-2. **Given** a pet already has a visit booked for a specific future date, **When** a visit is submitted for a different pet belonging to the same owner on that same date, **Then** the visit is accepted and persisted successfully.
-3. **Given** a visit is submitted for a pet with a date in the past or today, **When** the form is submitted, **Then** the form is re-displayed with a validation error indicating the date must be in the future (existing rule still applies independently of the duplicate check).
-4. **Given** a validation error message is defined for the duplicate date rule, **When** the error is triggered, **Then** the error message is present in all supported message bundles and renders correctly in all supported locales.
+1. **Given** a pet already has a visit booked for a specific future date, **When** a receptionist submits a new visit form for the same pet on that same date, **Then** the form is re-displayed with a validation error on the date field and no second visit record is created.
+2. **Given** a pet already has a visit booked for a specific future date, **When** a receptionist submits a new visit form for a different pet belonging to the same owner on that same date, **Then** the visit is accepted and persisted successfully.
+3. **Given** a receptionist submits a visit form with a date equal to today or in the past, **When** the form is submitted, **Then** the form is re-displayed with a validation error on the date field regardless of whether a visit already exists for that date.
+4. **Given** a pet has no existing visits, **When** a receptionist submits a visit form with a valid future date, **Then** the visit is accepted and persisted successfully.
 
 ---
 
 ### Edge Cases
 
-- What happens when an owner search returns more than the maximum page size of results — does pagination correctly segment all results without omitting any owner?
-- How does the system handle concurrent submissions of the same new owner form (e.g., double-click on submit) — is a duplicate owner record created or is the second submission rejected?
-- What happens when an owner's pet list is very large — does the owner detail page remain usable and does the pets list render in the correct alphabetical order?
-- How does the system handle an `addVisit` call where the `petId` is valid but the pet does not belong to the resolved owner — is `IllegalArgumentException` surfaced as a user-friendly error rather than an unhandled exception?
-- What happens when the owner form is submitted with a telephone number containing spaces or dashes (e.g., `555-123-4567`) — is the format rejection message clear to the user?
-- How does the system behave when the database is unavailable during an owner save operation — is the error handled gracefully without exposing internal details?
-- What happens when an owner record is loaded for editing and the owner ID in the URL does not match the ID in the submitted form — is the mismatch detected and rejected?
+- What happens when an owner search returns more than one page of results and the receptionist navigates to a subsequent page?
+- How does the system handle concurrent submissions of the owner registration form for the same person (potential duplicate owner records)?
+- What happens when a pet's visit history is very long — does the owner detail page remain usable and performant?
+- How does the system behave when the `ownerId` path variable in a URL is non-numeric or malformed?
+- What happens when an owner has the maximum number of pets and a new pet registration is attempted?
+- How does the email field behave when the database schema has not yet been migrated to include the email column (e.g., on a fresh MySQL or PostgreSQL deployment)?
+- What happens when two receptionists simultaneously attempt to update the same owner record?
 
 ## Requirements *(mandatory)*
 
 ### Functional Requirements
 
-- **FR-001**: System MUST allow a clinic receptionist to register a new owner by providing first name, last name, address, city, and telephone number via a web form.
+- **FR-001**: System MUST allow clinic staff to register a new owner by providing first name, last name, address, city, and telephone number via a web form.
 - **FR-002**: System MUST validate that the owner's address is not blank and does not exceed 255 characters, rejecting the form with a field-level error if violated.
 - **FR-003**: System MUST validate that the owner's city is not blank and does not exceed 80 characters, rejecting the form with a field-level error if violated.
-- **FR-004**: System MUST validate that the owner's telephone number is not blank and consists of exactly 10 digits, rejecting the form with a field-level error and the `telephone.invalid` message if violated.
-- **FR-005**: System MUST prevent client-side ID tampering by disallowing the `id` field and any nested `*.id` fields in owner form data binding.
-- **FR-006**: System MUST allow a clinic receptionist to search for owners by last name, returning a paginated list of owners whose last names start with the provided search term.
-- **FR-007**: System MUST strip leading and trailing whitespace from the last name search term before querying; a blank search term MUST return all owners.
-- **FR-008**: System MUST redirect directly to the owner detail page when a last name search returns exactly one matching owner.
-- **FR-009**: System MUST display the owner detail page showing the owner's contact information and all associated pets ordered alphabetically by pet name, with each pet's type, birth date, and visit history.
-- **FR-010**: System MUST allow a clinic receptionist to update an existing owner's contact information via an edit form, subject to the same validation rules as registration.
-- **FR-011**: System MUST return an appropriate error when an owner lookup by ID finds no matching record, without exposing sensitive data in error messages or stack traces.
-- **FR-012**: System MUST support an optional email address field on the owner registration and edit forms, validated as a properly formatted email address not exceeding 255 characters.
-- **FR-013**: System MUST display a field-level validation error on the email field when a non-empty email value fails format or length validation, and MUST re-display the form at `owners/createOrUpdateOwnerForm`.
-- **FR-014**: System MUST persist owner email address values across all three supported database profiles (H2, MySQL, PostgreSQL) without breaking existing sample data loads.
-- **FR-015**: System MUST prevent a second visit from being booked for the same pet on a date that already has an existing visit, returning a validation error on the date field.
-- **FR-016**: System MUST permit a visit to be booked for a different pet belonging to the same owner on a date already used by another pet under that owner.
-- **FR-017**: System MUST enforce that all visit dates are in the future, independently of the duplicate-date check.
-- **FR-018**: System MUST expose all owner-facing labels and validation error messages through every supported message bundle so that the UI renders correctly in all supported locales.
-- **FR-019**: System MUST log no owner sensitive fields (name, address, telephone) in any log statement, error message, stack trace, or actuator output.
+- **FR-004**: System MUST validate that the owner's telephone number is not blank and consists of exactly 10 digits, rejecting the form with a field-level error if the format is not met.
+- **FR-005**: System MUST allow clinic staff to search for owners by last name, returning a paginated list of matches; a blank search MUST return all owners.
+- **FR-006**: System MUST redirect directly to the owner detail page when a last name search yields exactly one matching owner.
+- **FR-007**: System MUST strip leading and trailing whitespace from the last name search input before executing the query.
+- **FR-008**: System MUST display an owner's full contact information (name, address, city, telephone) and their complete list of registered pets — ordered by pet name — on the owner detail page.
+- **FR-009**: System MUST allow clinic staff to update an existing owner's address, city, telephone, and email via an edit form, with the same validation rules applied as on the registration form.
+- **FR-010**: System MUST prevent client-side manipulation of owner ID values by disallowing the `id` field and any nested `*.id` fields from web form binding.
+- **FR-011**: System MUST support an optional email address field on the owner record, validated as a properly formatted email address not exceeding 255 characters; the field MUST be optional (no error when left blank).
+- **FR-012**: System MUST persist owner email address data correctly across all supported database profiles (H2, MySQL, PostgreSQL) without breaking existing sample data loads.
+- **FR-013**: System MUST prevent scheduling more than one visit for the same pet on the same calendar date, returning a field-level validation error on the date field when a duplicate is detected.
+- **FR-014**: System MUST enforce that all visit dates are at least one calendar day in the future, rejecting same-day or past-date submissions with a field-level validation error.
+- **FR-015**: System MUST expose all owner-facing form labels and validation error messages through all supported internationalisation message bundles so that every locale displays consistent, translated text.
+- **FR-016**: System MUST return an appropriate error response when an owner is looked up by an ID that does not exist in the database.
 
 ### Key Entities
 
-- **Owner**: Represents a registered pet owner and clinic customer. Key attributes: first name, last name, address (≤255 chars, required), city (≤80 chars, required), telephone (exactly 10 digits, required), email (optional, valid format, ≤255 chars). Owns zero or more Pets.
-- **Pet**: Belongs to exactly one Owner. Key attributes: name (required, ≤30 chars), birth date (required), pet type (required for new pets). Carries a collection of Visits ordered by date.
-- **Visit**: Records a single veterinary encounter for a Pet. Key attributes: date (required, must be in the future, no duplicate per pet per date), description (required, ≤255 chars). Immutable once created — visit history is append-only.
-- **PetType**: A reference classification for a Pet (e.g., dog, cat, bird). Required at pet registration. Managed as a lookup collection.
+- **Owner**: A registered pet owner and clinic customer. Key attributes: first name, last name, address (≤255 chars), city (≤80 chars), telephone (exactly 10 digits), optional email (≤255 chars, valid format). Owns zero or more Pets.
+- **Pet**: An animal registered under exactly one Owner. Key attributes: name (≤30 chars, required), birth date (required), pet type (required for new pets). Belongs to exactly one Owner. Has an append-only list of Visits.
+- **Visit**: A scheduled veterinary appointment for a Pet. Key attributes: date (future date, at least tomorrow), description (≤255 chars, required). Associated with exactly one Pet. Immutable once created.
+- **PetType**: A classification category for a Pet (e.g., dog, cat, bird). Required at Pet registration. Selected from a predefined list maintained by the clinic.
 
 ## Success Criteria *(mandatory)*
 
 ### Measurable Outcomes
 
-- **SC-001**: A clinic receptionist can complete new owner registration — from opening the form to viewing the confirmed owner detail page — in under 2 minutes under normal clinic conditions.
-- **SC-002**: Owner search by last name returns results in under 1 second for a dataset of up to 10,000 owner records.
-- **SC-003**: 100% of owner form submissions with invalid data (blank required fields, malformed telephone, invalid email) are rejected with a visible field-level error message before any record is persisted.
-- **SC-004**: The owner detail page correctly displays all registered pets in alphabetical order by name for owners with up to 50 pets.
-- **SC-005**: All owner-facing validation error messages render without missing keys or raw message codes in every supported locale.
-- **SC-006**: Zero owner sensitive fields (name, address, telephone) appear in application logs, error responses, or actuator outputs under any tested scenario.
-- **SC-007**: Duplicate visit booking for the same pet on the same date is rejected 100% of the time, with no duplicate visit records created under concurrent submission conditions.
-- **SC-008**: The application starts successfully and all existing sample data loads without error across all three database profiles (H2, MySQL, PostgreSQL) after the email field schema change is applied.
-- **SC-009**: 95% of receptionists successfully locate an existing owner record using the last name search on their first attempt, as measured during user acceptance testing.
+- **SC-001**: Clinic staff can complete new owner registration — from opening the form to seeing the owner detail page — in under 2 minutes under normal operating conditions.
+- **SC-002**: Owner search by last name returns results in under 1 second for a database containing up to 10,000 owner records.
+- **SC-003**: 100% of owner form submissions with invalid data are rejected with a visible, field-specific error message; no invalid owner record is ever persisted.
+- **SC-004**: 100% of duplicate visit booking attempts (same pet, same date) are rejected with a field-level error; no duplicate visit record is ever persisted.
+- **SC-005**: All owner-facing validation messages and form labels are present and correctly translated in every supported locale; the internationalisation sync test passes with zero failures.
+- **SC-006**: Owner records created or updated with an email address are retrievable and display the email correctly across all three supported database profiles (H2, MySQL, PostgreSQL) without data loss or startup errors.
+- **SC-007**: Existing sample data continues to load without error on all supported database profiles after the email field is introduced, with no disruption to existing owner records.
+- **SC-008**: The owner detail page correctly displays all registered pets and their visit histories for owners with up to 50 pets, each with up to 100 visits, without visible performance degradation.
 
 ## Assumptions
 
-- The application is a single-clinic, single-location system; multi-clinic or multi-location scenarios are out of scope per the project constitution.
-- The web UI is the only interface for owner management; no REST API or mobile interface is in scope for this feature.
-- Authentication and authorisation for clinic staff (receptionists) are handled by an existing or separately specified mechanism; this feature does not introduce new access control roles.
-- The email address field is optional for all owners, including existing records; no backfill or migration of email data for existing owners is required.
-- Schema changes for the email field will be applied via the existing profile-aware schema management mechanism (Spring Data JPA DDL or versioned migration scripts) and validated against H2, MySQL, and PostgreSQL before merge.
-- The duplicate visit date check applies per pet per calendar date; time-of-day scheduling within a single date is out of scope.
-- Visit records are never deleted; the duplicate-date check operates only against existing, persisted visit records.
-- Pagination page size for owner search results follows the existing application default; configurable page size is out of scope.
-- All user-facing strings introduced by this feature will be added to all supported locale message property files simultaneously to satisfy the `I18nPropertiesSyncTest`.
-- The `id` field tampering prevention applies to both the owner registration and owner edit forms.
-- GraalVM native image compatibility must be maintained; any new reflection-dependent types introduced by this feature must be registered in `PetClinicRuntimeHints`.
+- Clinic staff (receptionists) are the primary users of owner management screens; there is no self-service owner registration portal for pet owners themselves in this scope.
+- The email address field is a new addition to the Owner entity and requires a schema migration for MySQL and PostgreSQL profiles; H2 will reflect the change automatically via DDL generation.
+- Telephone number format is fixed at exactly 10 digits for all owners regardless of country; international telephone formats are out of scope.
+- The duplicate visit detection check applies per pet per calendar date; time-of-day scheduling within a single date is out of scope.
+- Pagination page size for owner search results follows the existing application default and is not configurable by the user in this feature.
+- The owner list display on search results shows name, address, city, and telephone; email is shown only on the owner detail page.
+- No authentication or role-based access control changes are required; all clinic staff have equal access to owner management screens.
+- Visit records are append-only and cannot be deleted or edited once created; this constraint is pre-existing and is not modified by this feature.
+- The internationalisation requirement covers all language bundles already present in the repository; no new locales are added as part of this feature.
+- Multi-location or multi-clinic support is explicitly out of scope per the project constitution.
