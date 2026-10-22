@@ -1,0 +1,14 @@
+{
+  "_role": "ba",
+  "mcpServers": {
+    "omnicontext": {
+      "type": "http",
+      "url": "http://localhost:8080/mcp"
+    }
+  },
+  "permissions": {
+    "allow": [
+      "Edit(docs/**)"
+    ]
+  }
+}

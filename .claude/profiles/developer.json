@@ -1,0 +1,27 @@
+{
+  "_role": "developer",
+  "mcpServers": {
+    "omnicontext": {
+      "type": "http",
+      "url": "http://localhost:8080/mcp"
+    },
+    "retrosync": {
+      "type": "http",
+      "url": "http://localhost:8085/mcp"
+    },
+    "github": {
+      "type": "http",
+      "url": "https://api.githubcopilot.com/mcp/",
+      "headers": {
+        "Authorization": "Bearer ${GITHUB_PAT}"
+      }
+    }
+  },
+  "permissions": {
+    "allow": [
+      "Edit(src/**)",
+      "Edit(tests/**)",
+      "Edit(docs/**)"
+    ]
+  }
+}
