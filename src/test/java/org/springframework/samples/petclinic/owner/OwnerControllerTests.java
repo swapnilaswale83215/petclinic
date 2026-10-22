@@ -39,6 +39,7 @@ import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasProperty;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.not;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -313,6 +314,51 @@ class OwnerControllerTests {
 			.andExpect(status().is3xxRedirection())
 			.andExpect(redirectedUrl("/owners/" + pathOwnerId + "/edit"))
 			.andExpect(flash().attributeExists("error"));
+	}
+
+	@Test
+	void testForgedXForwardedHostNotInLocationOnOwnerRedirect() throws Exception {
+		mockMvc
+			.perform(get("/owners").param("page", "1").param("lastName", "Franklin")
+				.header("X-Forwarded-Host", "attacker.internal"))
+			.andExpect(status().is3xxRedirection())
+			.andExpect(header().string("Location", not(containsString("attacker.internal"))));
+	}
+
+	@Test
+	void testForgedHostNotInLocationOnOwnerRedirect() throws Exception {
+		mockMvc
+			.perform(get("/owners").param("page", "1").param("lastName", "Franklin")
+				.header("Host", "evil.example.com"))
+			.andExpect(status().is3xxRedirection())
+			.andExpect(header().string("Location", not(containsString("evil.example.com"))));
+	}
+
+	@Test
+	void testForgedXForwardedHostNotInLocationOnOwnerCreate() throws Exception {
+		mockMvc
+			.perform(post("/owners/new").header("X-Forwarded-Host", "attacker.internal")
+				.param("firstName", "Joe")
+				.param("lastName", "Bloggs")
+				.param("address", "123 Caramel Street")
+				.param("city", "London")
+				.param("telephone", "1316761638"))
+			.andExpect(status().is3xxRedirection())
+			.andExpect(header().string("Location", not(containsString("attacker.internal"))));
+	}
+
+	@Test
+	void testForgedXForwardedHostNotInLocationOnOwnerEdit() throws Exception {
+		mockMvc
+			.perform(post("/owners/{ownerId}/edit", TEST_OWNER_ID)
+				.header("X-Forwarded-Host", "attacker.internal")
+				.param("firstName", "Joe")
+				.param("lastName", "Bloggs")
+				.param("address", "123 Caramel Street")
+				.param("city", "London")
+				.param("telephone", "1616291589"))
+			.andExpect(status().is3xxRedirection())
+			.andExpect(header().string("Location", not(containsString("attacker.internal"))));
 	}
 
 }

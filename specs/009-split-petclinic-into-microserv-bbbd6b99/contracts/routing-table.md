@@ -139,6 +139,10 @@ A failure of one upstream must not affect the responses of the other upstream (F
 | `Location` (from upstream) | Must use the public host or a relative path; the edge must rewrite any `Location` header that contains an internal hostname or port |
 | Session cookies | The edge must not forward `JSESSIONID` from the Owners service to the Vets service, and must not forward any Vets response cookie to the Owners service |
 | Locale cookie | Passed through unchanged in both directions; the edge must not modify or strip the locale cookie |
+| `X-Forwarded-Port` (inbound) | Stripped by the edge; must not be forwarded to either upstream (E5-S1) |
+| `Forwarded` (inbound) | Stripped by the edge; must not be forwarded to either upstream (E5-S1) |
+| `X-Real-IP` (inbound) | Stripped by the edge; must not be forwarded to either upstream (E5-S1) |
+| `X-Forwarded-For / X-Forwarded-Host / X-Forwarded-Proto / X-Forwarded-Port` | Set by the edge from verified connection context before forwarding; downstream services MUST treat these as trusted |
 
 ---
 
