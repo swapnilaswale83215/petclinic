@@ -92,6 +92,19 @@ class CrashControllerIntegrationTests {
 				"This application has no explicit mapping for");
 	}
 
+	@Test
+	void testForgedXForwardedHostNotInLocationOnOups() {
+		ResponseEntity<Map<String, Object>> resp = rest.exchange(
+				RequestEntity.get("http://localhost:" + port + "/oups")
+					.header("X-Forwarded-Host", "attacker.internal")
+					.build(),
+				new ParameterizedTypeReference<Map<String, Object>>() {
+				});
+		assertThat(resp).isNotNull();
+		assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
+		assertThat(resp.getHeaders().getLocation()).isNull();
+	}
+
 	@SpringBootApplication(exclude = { DataSourceAutoConfiguration.class,
 			DataSourceTransactionManagerAutoConfiguration.class, HibernateJpaAutoConfiguration.class })
 	static class TestConfiguration {
