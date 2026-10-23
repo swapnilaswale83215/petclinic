@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: petclinic-blue
+  labels:
+    app: petclinic
+    slot: blue
+  annotations:
+    platform/external-exposure: "none"
+spec:
+  type: ClusterIP
+  selector:
+    app: petclinic
+    slot: blue
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+      protocol: TCP

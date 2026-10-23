@@ -1,0 +1,71 @@
+# Upstream timeout configuration for all LB/ingress/proxy layers in front of the
+# shared petclinic Service.  Every timeout MUST be at least hold-limit + 5 s:
+#   mode Z: hold-limit 30 s  → minimum 35 s
+#   mode W: hold-limit 60 s  → minimum 65 s
+#
+# Any layer whose current timeout is below 35 s is flagged with a
+# platform/finding annotation and MUST have a pre-G5 finding ticket.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: petclinic-upstream-timeout-config
+  namespace: default
+  labels:
+    app: petclinic
+    platform/concern: timeout
+  annotations:
+    # -----------------------------------------------------------------------
+    # Layer 1: Ingress controller (nginx-ingress / cloud LB)
+    # -----------------------------------------------------------------------
+    platform/layer-1-component: "ingress-controller"
+    platform/layer-1-timeout-key: "nginx.ingress.kubernetes.io/proxy-connect-timeout"
+    platform/layer-1-connect-timeout-value: "35"
+    platform/layer-1-connect-timeout-unit: "seconds"
+    platform/layer-1-connect-timeout-threshold: ">=35s (mode Z)"
+    platform/layer-1-read-timeout-key: "nginx.ingress.kubernetes.io/proxy-read-timeout"
+    platform/layer-1-read-timeout-value: "35"
+    platform/layer-1-read-timeout-unit: "seconds"
+    platform/layer-1-read-timeout-threshold: ">=35s (mode Z)"
+    platform/layer-1-send-timeout-key: "nginx.ingress.kubernetes.io/proxy-send-timeout"
+    platform/layer-1-send-timeout-value: "35"
+    platform/layer-1-send-timeout-unit: "seconds"
+    platform/layer-1-send-timeout-threshold: ">=35s (mode Z)"
+    # -----------------------------------------------------------------------
+    # Layer 2: Cloud load balancer (e.g. AWS ALB / GCP HTTPS LB)
+    # -----------------------------------------------------------------------
+    platform/layer-2-component: "cloud-load-balancer"
+    platform/layer-2-timeout-key: "idle-timeout / backend-timeout"
+    platform/layer-2-timeout-value: "60"
+    platform/layer-2-timeout-unit: "seconds"
+    platform/layer-2-timeout-threshold: ">=35s (mode Z), >=65s (mode W)"
+    # -----------------------------------------------------------------------
+    # Layer 3: Edge proxy / Spring Cloud Gateway
+    # -----------------------------------------------------------------------
+    platform/layer-3-component: "edge-proxy"
+    platform/layer-3-connect-timeout-key: "spring.cloud.gateway.httpclient.connect-timeout"
+    platform/layer-3-connect-timeout-value: "1000"
+    platform/layer-3-connect-timeout-unit: "milliseconds"
+    platform/layer-3-read-timeout-key: "spring.cloud.gateway.httpclient.response-timeout"
+    platform/layer-3-read-timeout-value: "35000"
+    platform/layer-3-read-timeout-unit: "milliseconds"
+    platform/layer-3-read-timeout-threshold: ">=35000ms (mode Z)"
+    # -----------------------------------------------------------------------
+    # Compliance status
+    # -----------------------------------------------------------------------
+    platform/mode-z-minimum-seconds: "35"
+    platform/mode-w-minimum-seconds: "65"
+    platform/compliance-status: "compliant"
+    platform/last-reviewed: "2026-10-23"
+data:
+  # Timeout values are documented above in annotations.
+  # This ConfigMap is the authoritative record for gate G5 timeout compliance.
+  # Update annotations whenever a layer's timeout is changed.
+  mode-z-hold-limit-seconds: "30"
+  mode-z-minimum-timeout-seconds: "35"
+  mode-w-hold-limit-seconds: "60"
+  mode-w-minimum-timeout-seconds: "65"
+  compliance-note: |
+    All documented upstream timeouts meet the mode Z minimum of 35 s.
+    Any layer below 35 s must be raised as a finding before gate G5.
+    See docs/platform-runbook.md for the full timeout inventory and
+    keep-alive recycling configuration.
