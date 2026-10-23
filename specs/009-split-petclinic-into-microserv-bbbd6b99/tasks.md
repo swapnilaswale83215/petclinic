@@ -129,7 +129,7 @@ description: "Task list template for feature implementation"
 - [ ] T063 [P] Copy `PetControllerTests.java` verbatim to `owners/src/test/java/org/springframework/samples/petclinic/owner/PetControllerTests.java` — no assertion changes
 - [ ] T064 [P] Copy `VisitControllerTests.java` verbatim to `owners/src/test/java/org/springframework/samples/petclinic/owner/VisitControllerTests.java` — no assertion changes
 - [ ] T065 [P] Copy `CrashControllerTests.java` verbatim to `owners/src/test/java/org/springframework/samples/petclinic/system/CrashControllerTests.java` — no assertion changes
-- [ ] T066 [P] Copy the owner-side methods of `ClinicServiceTests.java` verbatim to `owners/src/test/java/org/springframework/samples/petclinic/service/ClinicServiceTests.java` — only owner-repository-exercising methods; no assertion changes
+- [x] T066 [P] Copy the owner-side methods of `ClinicServiceTests.java` verbatim to `owners/src/test/java/org/springframework/samples/petclinic/service/ClinicServiceTests.java` — only owner-repository-exercising methods; no assertion changes
 - [ ] T067 [P] Copy `PetClinicIntegrationTests.java` verbatim to `owners/src/test/java/org/springframework/samples/petclinic/PetClinicIntegrationTests.java` — no assertion changes
 - [ ] T068 [P] Copy `PetClinicConcurrencyTests.java` verbatim to `owners/src/test/java/org/springframework/samples/petclinic/PetClinicConcurrencyTests.java` — no assertion changes
 - [ ] T069 [P] Create `vets/src/test/java/org/springframework/samples/petclinic/MySqlIntegrationTests.java` scoped to Vets tables only (`vets`, `specialties`, `vet_specialties`) using Testcontainers; copy verbatim from monolith's MySQL integration test, retaining only vet-table assertions — no assertion changes
