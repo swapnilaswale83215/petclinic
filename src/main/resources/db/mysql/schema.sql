@@ -37,14 +37,16 @@ CREATE TABLE IF NOT EXISTS owners (
 
 CREATE TABLE IF NOT EXISTS pets (
   id INT(4) UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-  name VARCHAR(30),
+  -- utf8mb4_general_ci makes pet-name uniqueness case-insensitive (SPEC-APP-5)
+  name VARCHAR(30) COLLATE utf8mb4_general_ci,
   birth_date DATE,
   type_id INT(4) UNSIGNED NOT NULL,
   owner_id INT(4) UNSIGNED,
   INDEX(name),
   FOREIGN KEY (owner_id) REFERENCES owners(id),
   FOREIGN KEY (type_id) REFERENCES types(id),
-  UNIQUE (owner_id, name)
+  -- Named constraint so PetController.isDuplicatePetNameViolation() can match it (SPEC-APP-5)
+  UNIQUE KEY unique_owner_pet_name (owner_id, name)
 ) engine=InnoDB;
 
 CREATE TABLE IF NOT EXISTS visits (
