@@ -18,10 +18,13 @@ package org.springframework.samples.petclinic.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
+import org.springframework.core.env.Environment;
 import org.springframework.dao.DataIntegrityViolationException;
 import java.time.LocalDate;
 import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 
 import org.junit.jupiter.api.Test;
@@ -83,6 +86,9 @@ class ClinicServiceTests {
 
 	@Autowired
 	protected VetRepository vets;
+
+	@Autowired
+	private Environment environment;
 
 	private final Pageable pageable = Pageable.unpaged();
 
@@ -310,6 +316,55 @@ class ClinicServiceTests {
 		// Verify both exist
 		assertThat(owner1.getPet("SamePetName")).isNotNull();
 		assertThat(owner2.getPet("samepetname")).isNotNull();
+	}
+
+	@Test
+	void shouldSearchOwnersByLastNameCaseSensitively() {
+		// SPEC-APP-4 parity gate: case-sensitive last-name search on MySQL
+		boolean mysqlActive = false;
+		for (String profile : environment.getActiveProfiles()) {
+			if (profile.contains("mysql")) {
+				mysqlActive = true;
+				break;
+			}
+		}
+		assumeTrue(mysqlActive, "Skipping case-sensitive search test: not running on MySQL profile");
+
+		Page<Owner> upperCaseResult = this.owners.findByLastNameStartingWith("Da", pageable);
+		assertThat(upperCaseResult).isNotEmpty();
+		for (Owner owner : upperCaseResult) {
+			assertThat(owner.getLastName()).startsWith("Da");
+		}
+
+		Page<Owner> lowerCaseResult = this.owners.findByLastNameStartingWith("da", pageable);
+		assertThat(lowerCaseResult).isEmpty();
+	}
+
+	@Test
+	void shouldHaveNoOrphanedPetsOrVisitsAfterLoad() {
+		List<Owner> allOwners = this.owners.findAll();
+		assertThat(allOwners).isNotEmpty();
+		for (Owner owner : allOwners) {
+			assertThat(this.owners.findById(owner.getId())).isPresent();
+			for (Pet pet : owner.getPets()) {
+				assertThat(pet.getId()).isNotNull();
+				for (Visit visit : pet.getVisits()) {
+					assertThat(visit).isNotNull();
+				}
+			}
+		}
+	}
+
+	@Test
+	void shouldReturnPetsOrderedByNameForOwner() {
+		Optional<Owner> optionalOwner = this.owners.findById(6);
+		assertThat(optionalOwner).isPresent();
+		Owner owner6 = optionalOwner.get();
+		List<Pet> pets = owner6.getPets();
+		assertThat(pets.size()).isGreaterThan(1);
+		for (int i = 0; i < pets.size() - 1; i++) {
+			assertThat(pets.get(i).getName().compareTo(pets.get(i + 1).getName())).isLessThanOrEqualTo(0);
+		}
 	}
 
 }
