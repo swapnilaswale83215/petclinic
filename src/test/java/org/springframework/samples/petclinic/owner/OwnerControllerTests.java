@@ -42,8 +42,10 @@ import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -313,6 +315,40 @@ class OwnerControllerTests {
 			.andExpect(status().is3xxRedirection())
 			.andExpect(redirectedUrl("/owners/" + pathOwnerId + "/edit"))
 			.andExpect(flash().attributeExists("error"));
+	}
+
+	@Test
+	void processFindFormPaddedTermMatchesTrimmedTermForMultipleOwners() throws Exception {
+		Owner davis1 = new Owner();
+		davis1.setId(2);
+		davis1.setFirstName("Betty");
+		davis1.setLastName("Davis");
+		davis1.setAddress("638 Cardinal Ave.");
+		davis1.setCity("Sun Prairie");
+		davis1.setTelephone("6085551749");
+
+		Owner davis2 = new Owner();
+		davis2.setId(4);
+		davis2.setFirstName("Harold");
+		davis2.setLastName("Davis");
+		davis2.setAddress("563 Friendly St.");
+		davis2.setCity("Windsor");
+		davis2.setTelephone("6085553198");
+
+		Page<Owner> davisPage = new PageImpl<>(List.of(davis1, davis2));
+		when(this.owners.findByLastNameStartingWith(eq("Davis"), any(Pageable.class))).thenReturn(davisPage);
+
+		for (String lastName : List.of(" Davis", "Davis ", " Davis ", "Davis")) {
+			mockMvc.perform(get("/owners").param("lastName", lastName))
+				.andExpect(status().isOk())
+				.andExpect(view().name("owners/ownersList"))
+				.andExpect(model().attribute("totalItems", is(2L)))
+				.andExpect(model().attribute("totalPages", is(1)))
+				.andExpect(model().attributeExists("listOwners"));
+		}
+
+		verify(this.owners, times(4)).findByLastNameStartingWith(eq("Davis"), any(Pageable.class));
+		verify(this.owners, never()).findByLastNameStartingWith(argThat(s -> s != null && !s.strip().equals(s)), any());
 	}
 
 }
