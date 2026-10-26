@@ -82,7 +82,7 @@ class VisitController {
 
 	@ModelAttribute("minVisitDate")
 	public LocalDate minVisitDate() {
-		return LocalDate.now().plusDays(1);
+		return LocalDate.now();
 	}
 
 	// Spring MVC calls method loadPetWithVisit(...) before initNewVisitForm is
@@ -97,8 +97,9 @@ class VisitController {
 	@PostMapping("/owners/{ownerId}/pets/{petId}/visits/new")
 	public String processNewVisitForm(@ModelAttribute Owner owner, @PathVariable int petId, @Valid Visit visit,
 			BindingResult result, RedirectAttributes redirectAttributes) {
-		if (visit.getDate() != null && !visit.getDate().isAfter(LocalDate.now())) {
-			result.rejectValue("date", "typeMismatch.visitDate");
+		// Reference date: today in the JVM default time zone
+		if (visit.getDate() != null && visit.getDate().isBefore(LocalDate.now())) {
+			result.rejectValue("date", "visit.date.pastNotAllowed", "Visit date must be today or in the future.");
 		}
 
 		if (result.hasErrors()) {
