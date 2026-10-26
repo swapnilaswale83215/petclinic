@@ -1,20 +1,15 @@
-# Quickstart: Reject Past Visit Dates
+# Quickstart Validation Guide: Reject Past Visit Dates
 
 **Feature**: `010-reject-past-visit-dates-15ab17d7`
 **Branch**: `010-reject-past-visit-dates-15ab17d7`
 **Date**: 2026-10-26
-**Spec**: `/specs/010-reject-past-visit-dates/spec.md`
+**Plan**: `specs/010-reject-past-visit-dates-15ab17d7/plan.md`
 
 ---
 
 ## Purpose
 
-This guide describes how to verify the feature end-to-end after the change is applied. Each step is mapped to the success criterion it proves. No implementation code is included; see `tasks.md` for that.
-
-The feature has exactly two observable outcomes:
-
-1. A POST to the new-visit form with a past date is rejected with the message `"Visit date must be today or in the future."` and the visit is not saved.
-2. A POST with today's date (or any future date) is accepted and the visit is saved.
+This guide describes how to verify the feature end-to-end after the two-file change (`VisitController.java` and `VisitControllerTests.java`) has been applied to the branch. Each scenario is mapped to the success criteria it proves. Run the scenarios in order; a failure in an earlier scenario is a prerequisite failure for later ones.
 
 ---
 
@@ -22,82 +17,31 @@ The feature has exactly two observable outcomes:
 
 | Requirement | Detail |
 |---|---|
-| Java 17 | Must be on `PATH`; `java -version` should report 17.x |
-| Maven Wrapper | Use `./mvnw` from the repository root; no external Maven installation required |
-| Git | To verify the diff scope (SC-002) |
-| Repository checked out on the feature branch | `git checkout 010-reject-past-visit-dates-15ab17d7` |
-| No uncommitted changes to files outside `VisitController.java` and `VisitControllerTests.java` | Confirmed by `git status` |
+| Java | 17 or later (JVM default time zone determines "today"; no override needed) |
+| Build tool | Maven Wrapper (`./mvnw`) present in the repository root; no external Maven installation required |
+| Database | None required for automated tests; H2 in-memory is the default profile |
+| Branch | `010-reject-past-visit-dates-15ab17d7` checked out and up to date with the two-file change applied |
+| Network | Not required for unit or integration tests on the H2 profile |
+
+Confirm the branch and working tree before running any scenario:
+
+```
+git status
+git log --oneline -1
+```
+
+Expected: working tree clean, HEAD is the feature commit.
 
 ---
 
-## Step 1 — Confirm the change is scoped to exactly two files
+## Scenario 1 — Unit test suite for `VisitControllerTests`
 
-**Command**:
+**Proves**: KPI-1, KPI-2, FR-001, FR-002, FR-003, FR-006, FR-008, FR-011
 
-```
-git diff main -- --name-only
-```
-
-**Expected output** (exactly these two lines, no others):
-
-```
-src/main/java/org/springframework/samples/petclinic/owner/VisitController.java
-src/test/java/org/springframework/samples/petclinic/owner/VisitControllerTests.java
-```
-
-**Success criterion proved**: SC-002 — the commit touches only the two permitted files.
-
-**What to check**: If any other file appears in the diff, the change is out of scope and must be corrected before proceeding.
-
----
-
-## Step 2 — Confirm no `messages*.properties` file defines `visit.date.pastNotAllowed`
-
-**Command**:
-
-```
-grep -r "visit.date.pastNotAllowed" src/main/resources/
-```
-
-**Expected output**: no output (exit code 1 or empty result).
-
-**Success criterion proved**: FR-003 (message is a Java compile-time constant, not a properties key), FR-007 (no properties file edited), and the `I18nPropertiesSyncTest` precondition (R-013).
-
-**What to check**: Any match means a properties file was edited in violation of FR-007.
-
----
-
-## Step 3 — Confirm `Visit.java` is byte-identical to main
-
-**Command**:
-
-```
-git diff main -- src/main/java/org/springframework/samples/petclinic/owner/Visit.java
-```
-
-**Expected output**: no output (empty diff).
-
-**Success criterion proved**: FR-007 and FR-012 — `Visit.java` must remain byte-identical; no entity-level annotation was added.
-
----
-
-## Step 4 — Run the format and checkstyle validators
-
-**Command**:
-
-```
-./mvnw spring-javaformat:validate -pl . && ./mvnw validate -pl .
-```
-
-**Expected outcome**: `BUILD SUCCESS` for both invocations; zero new checkstyle violations reported.
-
-**Success criterion proved**: SC-003 — `spring-javaformat:validate` and `nohttp` checkstyle pass on the changed files with no new suppressions.
-
-**What to check**: Any `BUILD FAILURE` or new violation must be resolved before the test run.
-
----
-
-## Step 5 — Run `VisitControllerTests` in isolation
+**What it checks**:
+- The replacement test posts yesterday's date and asserts HTTP 200, the form view `pets/createOrUpdateVisitForm`, a `BindingResult` field error on `date` with the exact default message `"Visit date must be today or in the future."`, and that `OwnerRepository.save` is never called.
+- The same test posts today's date with a valid description and asserts a 3xx redirect and that `OwnerRepository.save` is called exactly once.
+- The surefire report for the class shows exactly 5 tests, 0 failures, 0 errors.
 
 **Command**:
 
@@ -107,145 +51,174 @@ git diff main -- src/main/java/org/springframework/samples/petclinic/owner/Visit
 
 **Expected outcome**:
 
-- `BUILD SUCCESS`
-- Surefire summary: `Tests run: 5, Failures: 0, Errors: 0, Skipped: 0`
-- The replaced test method (formerly `processNewVisitFormHasErrorsWhenVisitDateIsNotInFuture`) is absent from the report; a new time-relative test method is present and passes.
+```
+Tests run: 5, Failures: 0, Errors: 0, Skipped: 0
+```
 
-**Surefire report location**: `target/surefire-reports/TEST-org.springframework.samples.petclinic.owner.VisitControllerTests.xml`
+The surefire XML report is written to `target/surefire-reports/`. The test method that replaced `processNewVisitFormHasErrorsWhenVisitDateIsNotInFuture` must appear in the report and must show status PASS.
 
-**What to verify in the report**:
+**Failure signals**:
+- `Tests run: 6` — the old test was not removed; the replacement added a second method instead of replacing the first.
+- `Tests run: 4` — the replacement test was not added or the old test was removed without a replacement.
+- `Failures: 1` on the replacement test — the exact message string does not match, the view name is wrong, the redirect assertion failed, or the `save` mock verification failed.
+- `Failures: 1` on any other test — a regression was introduced in one of the four unchanged tests.
 
-| Assertion | Where to look |
-|---|---|
-| Exactly 5 test cases listed | `<testsuite tests="5" ...>` attribute |
-| 0 failures, 0 errors | `failures="0" errors="0"` attributes |
-| The new test asserts the exact string `"Visit date must be today or in the future."` from the `BindingResult` | Test method name and any failure message in the XML; a passing test confirms the assertion held |
-| `OwnerRepository.save` is never called for the yesterday post | Confirmed by the test passing (Mockito `verify(ownerRepository, never()).save(any())`) |
-| `OwnerRepository.save` is called exactly once for the today post | Confirmed by the test passing (Mockito `verify(ownerRepository, times(1)).save(any())`) |
-| A 3xx redirect is returned for the today post | Confirmed by the test passing (MockMvc `andExpect(status().is3xxRedirection())`) |
-
-**Success criteria proved**:
-
-- KPI-1 — 5 tests, 0 failures in `VisitControllerTests`
-- KPI-2 — exact error text `"Visit date must be today or in the future."` verified by the `BindingResult` assertion
-- FR-001 — `OwnerRepository.save` not called on rejection
-- FR-002 — redirect on today's date
-- FR-003 — exact error code and message confirmed
-- FR-006 — one time-relative test using `LocalDate.now()` replaces the old fixed-date test
-- FR-008 — server-side check executes before `result.hasErrors()` (structural; confirmed by the test passing without any client-side bypass)
-- User Story 1 acceptance scenarios 1 and 2 (yesterday and further-past dates rejected)
-- User Story 2 acceptance scenario 1 (today accepted)
+**NC-3 note**: The surefire XML path (`target/surefire-reports/`) is the Maven default. If the CI pipeline uses a non-standard output directory, confirm the path by reading the GitHub Actions workflow file. This does not affect local verification.
 
 ---
 
-## Step 6 — Verify the combined-error scenario (past date + blank description)
+## Scenario 2 — Full automated test suite regression check
 
-This scenario is covered by the existing `VisitControllerTests` suite. Confirm it passes within the Step 5 run: the surefire report must show 0 failures across all 5 tests, which includes any test asserting that both `date` and `description` errors are returned together.
+**Proves**: SC-001, FR-007, FR-012, FR-009, Gate 8 (I18nPropertiesSyncTest)
 
-**Success criteria proved**:
-
-- FR-011 — both field errors returned in the same HTTP 200 response
-- User Story 1 acceptance scenario 3
-
----
-
-## Step 7 — Verify null-date and type-mismatch behaviour
-
-This scenario is covered by the existing `VisitControllerTests` suite. Confirm it passes within the Step 5 run: the surefire report must show 0 failures, which includes any test asserting that a blank or unparseable date produces only the existing binding error and that `visit.date.pastNotAllowed` is absent.
-
-**Success criteria proved**:
-
-- FR-004 — `typeMismatch.visitDate` not used for past-date rejection
-- User Story 3 acceptance scenarios 1 and 2
-
----
-
-## Step 8 — Run the full test suite
+**What it checks**:
+- `ClinicServiceTests` passes without modification, confirming that the past-date check is not applied at the persistence layer and that `shouldAddNewVisitForPet` (which saves a `new Visit()` with a tomorrow default date) is unaffected.
+- `PetClinicIntegrationTests` passes, confirming no regression in the broader integration surface.
+- `OwnerControllerTests` passes, confirming no cross-controller regression.
+- `PetControllerTests` passes, confirming no cross-controller regression.
+- `I18nPropertiesSyncTest` passes, confirming that no new template key was introduced and no `messages*.properties` file was edited.
 
 **Command**:
 
 ```
-./mvnw test -pl .
+./mvnw test
 ```
 
-**Expected outcome**: `BUILD SUCCESS`; all test classes pass with 0 failures and 0 errors.
+**Expected outcome**: All test classes pass. The surefire summary shows 0 failures and 0 errors across the full suite.
 
-**Key classes to confirm in the surefire output**:
-
-| Class | Why it matters |
-|---|---|
-| `VisitControllerTests` | Already confirmed in Step 5; re-confirmed here |
-| `ClinicServiceTests` | Saves a `new Visit()` with a future default date directly via `OwnerRepository`; must pass with no assertion edits (R-012) |
-| `PetClinicIntegrationTests` | Full-context integration test; must pass with no assertion edits |
-| `OwnerControllerTests` | Unrelated controller; must not regress |
-| `PetControllerTests` | Unrelated controller; must not regress |
-| `I18nPropertiesSyncTest` | Confirms no new properties key was introduced (R-013) |
-
-**Success criteria proved**:
-
-- SC-001 — 0 regressions in the existing suite; no assertion edits to any file other than `VisitControllerTests.java`
-- User Story 4 acceptance scenario 2
-- KPI-1 (full-suite confirmation)
+**Failure signals**:
+- `I18nPropertiesSyncTest` fails — a `messages*.properties` file was edited, or the test scans Java source for error codes and flags `visit.date.pastNotAllowed`. If the latter, read `I18nPropertiesSyncTest.java` to confirm scan scope (NC-4); if the test does scan Java source, a bundle entry for `visit.date.pastNotAllowed` must be added to every `messages*.properties` file, which requires a spec amendment before proceeding.
+- `ClinicServiceTests.shouldAddNewVisitForPet` fails — the past-date check was placed at the entity or persistence layer rather than in the controller only; revert to the controller-only approach.
+- Any other test class fails — a file outside the two permitted files was modified, or a shared test fixture was inadvertently changed.
 
 ---
 
-## Step 9 — Spot-check `VisitController.java` for the three required behaviour changes
+## Scenario 3 — Code format and checkstyle validation
 
-Open `src/main/java/org/springframework/samples/petclinic/owner/VisitController.java` and confirm the following by reading the source:
+**Proves**: SC-003, FR-007 (no pom.xml or CI config change)
 
-| Check | What to look for |
-|---|---|
-| Past-date rejection | `visit.getDate() != null && visit.getDate().isBefore(LocalDate.now())` followed by `result.rejectValue("date", "visit.date.pastNotAllowed", "Visit date must be today or in the future.")` in `processNewVisitForm`, placed before the `result.hasErrors()` guard |
-| `minVisitDate` set to today | `model.addAttribute("minVisitDate", LocalDate.now())` (not `plusDays(1)`) in `initNewVisitForm` |
-| `@InitBinder` unchanged | `setAllowedFields` still lists `"id"` and `"*.id"` exactly as on main; no other change to the binder method |
-| Time-zone comment | A code comment near `LocalDate.now()` stating that "today" is defined by the JVM's default time zone |
+**What it checks**:
+- `spring-javaformat:validate` passes on the changed files with no new suppressions.
+- `nohttp` checkstyle passes with no new violations.
 
-**Success criteria proved**:
+**Command**:
 
-- FR-001, FR-002 — rejection and acceptance logic present
-- FR-003 — exact error code and default message as a compile-time constant with no request-data concatenation
-- FR-005 — `minVisitDate` equals `LocalDate.now()`
-- FR-008 — check is before `result.hasErrors()` and guarded by a null check
-- FR-009 — `@InitBinder` disallowed-field rule unchanged
-- R-010 — time-zone handling documented in a comment
+```
+./mvnw validate
+```
 
----
+**Expected outcome**: BUILD SUCCESS with no checkstyle or format violations reported.
 
-## Step 10 — Confirm the story description records the three behaviour changes
-
-Open the story description for E1-S1 and confirm it states:
-
-1. The error code is `visit.date.pastNotAllowed`.
-2. The error text is `"Visit date must be today or in the future."`.
-3. Today's date is now accepted (was previously rejected on main).
-
-**Success criterion proved**: E1-S1 acceptance criterion — the story description states the three behaviour changes.
+**Failure signals**:
+- Format violation in `VisitController.java` or `VisitControllerTests.java` — run `./mvnw spring-javaformat:apply` to auto-fix, then re-validate.
+- `nohttp` violation — a bare `http://` URL was introduced in a comment or string literal; replace with `https://` or a relative reference.
 
 ---
 
-## Summary of Success Criteria Coverage
+## Scenario 4 — Diff scope check
 
-| Criterion | Step(s) |
+**Proves**: SC-002, FR-007
+
+**What it checks**:
+- Exactly two files differ from the base commit on main: `VisitController.java` and `VisitControllerTests.java`.
+- No template, `messages*.properties` file, schema file, seed file, Kubernetes manifest, CI configuration file, or `pom.xml` appears in the diff.
+
+**Command**:
+
+```
+git diff --name-only origin/main
+```
+
+**Expected output** (exactly two lines, order may vary):
+
+```
+src/main/java/org/springframework/samples/petclinic/owner/VisitController.java
+src/test/java/org/springframework/samples/petclinic/owner/VisitControllerTests.java
+```
+
+**Supplementary check** — confirm `Visit.java` is byte-identical:
+
+```
+git diff origin/main -- src/main/java/org/springframework/samples/petclinic/owner/Visit.java
+```
+
+Expected: no output (empty diff).
+
+**Failure signals**:
+- Any file other than the two permitted files appears in the diff — identify which constraint was violated and revert the unintended change.
+- `Visit.java` appears in the diff — the entity was modified; revert it.
+
+---
+
+## Scenario 5 — Manual smoke test (optional)
+
+**Proves**: FR-001, FR-002, FR-005, FR-010 (observable end-to-end behaviour in the running application)
+
+**What it checks**:
+- The form hint (`minVisitDate`) reflects today's date, not tomorrow's.
+- Submitting a past date re-renders the form with the message "Visit date must be today or in the future." and does not save the visit.
+- Submitting today's date with a valid description redirects to the owner detail page and the visit appears in the visit history.
+
+**Setup**:
+
+```
+./mvnw spring-boot:run
+```
+
+Wait for the application to start (look for `Started PetClinicApplication` in the console output). The application runs on `http://localhost:8080` by default.
+
+**Steps**:
+
+1. Navigate to `http://localhost:8080/owners` and select any owner.
+2. Select any pet belonging to that owner.
+3. Click "Add Visit".
+4. **Past-date rejection** (proves FR-001, FR-003):
+   - Enter a date that is at least one day before today (e.g., yesterday's date in the form's date picker or text field).
+   - Enter a valid description (e.g., "Annual checkup").
+   - Submit the form.
+   - **Expected**: The form re-renders (HTTP 200). The message "Visit date must be today or in the future." is displayed near the date field. No new visit appears in the pet's visit history.
+5. **Today acceptance** (proves FR-002, FR-005):
+   - Enter today's date.
+   - Enter a valid description.
+   - Submit the form.
+   - **Expected**: The browser redirects to the owner detail page. The new visit appears in the pet's visit history with today's date and the description entered.
+6. **Form hint** (proves FR-005):
+   - Return to "Add Visit" for the same pet.
+   - Inspect the date field's minimum value hint (rendered from the `minVisitDate` model attribute).
+   - **Expected**: The hint reflects today's date, not tomorrow's.
+
+**Teardown**: Stop the application with `Ctrl+C`. The H2 in-memory database is discarded on shutdown; no cleanup is required.
+
+**Note**: This scenario is optional because Scenarios 1 and 2 provide machine-verifiable proof of all acceptance criteria. The smoke test is useful for visual confirmation and for verifying the `minVisitDate` hint change, which is not directly asserted by the automated tests.
+
+---
+
+## Rollback
+
+If any scenario fails and the change must be reverted:
+
+```
+git revert <commit-sha>
+```
+
+Then redeploy (or restart the local application). No schema migration was introduced; there is nothing to reverse at the database layer.
+
+---
+
+## Scenario-to-Criteria Map
+
+| Scenario | KPI / SC / FR proved |
 |---|---|
-| KPI-1: 5 tests, 0 failures in `VisitControllerTests` | 5, 8 |
-| KPI-2: Exact error text verified by `BindingResult` assertion | 5 |
-| SC-001: 0 regressions in full suite | 8 |
-| SC-002: Only two files changed | 1 |
-| SC-003: Checkstyle passes, 0 new suppressions | 4 |
-| FR-001: Save not called on rejection | 5 |
-| FR-002: Redirect on today's date | 5 |
-| FR-003: Exact error code and default message | 5, 9 |
-| FR-004: `typeMismatch.visitDate` not used for past-date rejection | 7 |
-| FR-005: `minVisitDate` equals `LocalDate.now()` | 9 |
-| FR-006: One time-relative test using `LocalDate.now()` | 5 |
-| FR-007: No properties file, template, schema, or other file edited | 1, 2, 3 |
-| FR-008: Server-side check before `result.hasErrors()`, null-guarded | 5, 9 |
-| FR-009: `@InitBinder` unchanged | 9 |
-| FR-011: Both errors returned together | 6 |
-| FR-012: No schema/seed change; past-dated rows unaffected | 3, 8 |
-| User Story 1 (past date rejected) | 5 |
-| User Story 2 (today accepted) | 5 |
-| User Story 3 (null/unparseable date unaffected) | 7 |
-| User Story 4 (automated test coverage) | 5, 8 |
-| R-012: `ClinicServiceTests` unaffected | 8 |
-| R-013: `I18nPropertiesSyncTest` passes | 8 |
+| 1 — `VisitControllerTests` (5 tests, 0 failures) | KPI-1, KPI-2 |
+| 1 — yesterday POST: HTTP 200, form view, exact error message, no save | FR-001, FR-003, FR-008 |
+| 1 — today POST: 3xx redirect, save called once | FR-002 |
+| 1 — combined past date + blank description: both errors returned | FR-011 |
+| 2 — full suite passes, no assertion edits | SC-001 |
+| 2 — `ClinicServiceTests` passes | FR-012 (controller-only check, no persistence-layer impact) |
+| 2 — `I18nPropertiesSyncTest` passes | FR-003 (no properties file edited), FR-007 |
+| 3 — `mvn validate` passes | SC-003 |
+| 4 — diff shows exactly two files | SC-002, FR-007 |
+| 4 — `Visit.java` byte-identical | FR-007 |
+| 5 — form re-renders with exact message on past date | FR-001, FR-003, FR-010 |
+| 5 — redirect on today's date | FR-002, FR-010 |
+| 5 — `minVisitDate` hint reflects today | FR-005 |

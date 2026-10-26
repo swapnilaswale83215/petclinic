@@ -5,118 +5,127 @@ description: "Task list template for feature implementation"
 
 # Tasks: Reject Past Visit Dates
 
-**Input**: Design documents from `/specs/010-reject-past-visit-dates/`
+**Input**: Design documents from `/specs/010-reject-past-visit-dates-15ab17d7/`
 
-**Prerequisites**: plan.md ✓, spec.md ✓, research.md ✓, data-model.md ✓, contracts/visit-form-post.md ✓
+**Prerequisites**: plan.md (required), spec.md (required for user stories), research.md, data-model.md, contracts/visit-form-post.md
 
-**Tests**: Test tasks are included — US4 (Priority P2) is explicitly a test-coverage deliverable per spec.md and FR-006.
+**Tests**: Test tasks are included because User Story 4 (P2) is explicitly a deliverable test story and FR-006 mandates a specific JUnit test replacement.
 
-**Organization**: Tasks are grouped by user story to enable independent implementation and testing of each story. Because FR-007 and SC-002 restrict all changes to exactly two files (`VisitController.java` and `VisitControllerTests.java`), there is no shared infrastructure to build and no new entities to create. Phase 1 (Setup) and Phase 2 (Foundational) are therefore minimal orientation and read-only verification steps; all substantive work is in the user-story phases.
+**Organization**: Tasks are grouped by user story to enable independent implementation and testing of each story. Because FR-007 restricts all changes to exactly two files (`VisitController.java` and `VisitControllerTests.java`), there is no Setup or Foundational infrastructure work; all tasks are either controller implementation or test implementation.
 
 ## Format: `[ID] [P?] [Story] Description`
 
 - **[P]**: Can run in parallel (different files, no dependencies)
-- **[Story]**: Which user story this task belongs to (US1–US4)
-- Exact file paths are included in every description
+- **[Story]**: Which user story this task belongs to (e.g., US1, US2, US3)
+- Include exact file paths in descriptions
 
 ## Path Conventions
 
-Single-project Maven layout. All source paths are relative to the repository root.
+Single-project Maven layout. All source under `src/main/java` and `src/test/java`.
 
 ---
 
-## Phase 1: Setup (Orientation & Scope Verification)
+## Phase 1: Setup (Shared Infrastructure)
 
-**Purpose**: Confirm the working environment, locate the two permitted files, and verify the baseline test suite passes before any edit is made. No files are created or modified in this phase.
+**Purpose**: Confirm the working environment and read the live files that the NC items flag as unverified before writing any code. No files are created or modified in this phase.
 
-- [ ] T001 Read `src/main/java/org/springframework/samples/petclinic/owner/VisitController.java` in full and confirm the current signatures of `initNewVisitForm`, `processNewVisitForm`, and the `@InitBinder` method; note the current value of `minVisitDate` (expected: `LocalDate.now().plusDays(1)`) and the absence of any past-date check
-- [ ] T002 Read `src/test/java/org/springframework/samples/petclinic/owner/VisitControllerTests.java` in full and identify the existing test method `processNewVisitFormHasErrorsWhenVisitDateIsNotInFuture` that must be replaced; confirm the class currently contains exactly 5 test methods and note the `@MockBean OwnerRepository` setup and any existing `ownerRepository.findById` stub patterns
-- [ ] T003 Read `src/main/java/org/springframework/samples/petclinic/owner/Visit.java` in full and record the exact field declarations, annotations, and default-constructor body (expected: `this.date = LocalDate.now().plusDays(1)`); this file MUST remain byte-identical — reading it now establishes the baseline for the SC-002 diff check
-- [ ] T004 Verify that `src/main/resources/messages.properties` and `src/main/resources/messages_de.properties` do NOT contain the key `visit.date.pastNotAllowed`; record the current state so the post-change diff can confirm no entry was added (FR-003, FR-007, R-006, R-013)
-
-**Checkpoint**: Baseline confirmed — both permitted files are located, the test count is verified at 5, and the read-only files are recorded. Implementation can begin.
+- [ ] T001 Read the live source of `src/main/java/org/springframework/samples/petclinic/owner/VisitController.java` on main and record: exact signature of `processNewVisitForm`, exact current expression for `minVisitDate` in `initNewVisitForm`, exact structure of the `result.hasErrors()` guard, and exact body of the `@InitBinder` method (resolves NC-1)
+- [ ] T002 Read the live source of `src/test/java/org/springframework/samples/petclinic/owner/VisitControllerTests.java` on main and record: exact name of the test to be replaced (`processNewVisitFormHasErrorsWhenVisitDateIsNotInFuture`), its mock setup (`given(owners.findById(...)).willReturn(...)`), and the configuration shared by all five tests in the class (resolves NC-2)
+- [ ] T003 Read the live source of `src/test/java/org/springframework/samples/petclinic/owner/VisitControllerTests.java` and confirm the total number of test methods is currently 4 (so that adding the replacement brings the count to 5 as required by KPI-1) — record the four existing method names
+- [ ] T004 Read `src/test/java/org/springframework/samples/petclinic/I18nPropertiesSyncTest.java` (or its equivalent path) and confirm whether it scans Java source for error-code strings or only checks Thymeleaf template `#{...}` key references against `messages*.properties` files; record the conclusion (resolves NC-4)
 
 ---
 
 ## Phase 2: Foundational (Blocking Prerequisites)
 
-**Purpose**: There are no new shared infrastructure components to build for this feature (no new classes, no schema changes, no new dependencies). The single foundational prerequisite is understanding the exact insertion point in `processNewVisitForm` so that US1 and US2 edits are placed correctly.
+**Purpose**: There are no new classes, packages, schema files, or configuration files to create. The only foundational prerequisite is confirming that the two permitted files compile cleanly on main before any edit, so that any subsequent compile failure is attributable to the change.
 
-**⚠️ CRITICAL**: The tasks below are read/analysis steps that MUST be completed before any edit is made to either permitted file.
+**⚠️ CRITICAL**: Confirm the baseline before editing either file.
 
-- [ ] T005 In `VisitController.java`, locate the exact line in `processNewVisitForm` where `result.hasErrors()` is evaluated and the form is re-rendered; record the line number and the full method body so the null-guard insertion point (`if (visit.getDate() != null && visit.getDate().isBefore(LocalDate.now()))`) is unambiguous (R-003, R-004, FR-008)
-- [ ] T006 In `VisitController.java`, locate the exact line in `initNewVisitForm` where `minVisitDate` is set (expected: `model.addAttribute("minVisitDate", LocalDate.now().plusDays(1))` or equivalent); record the current expression so the replacement (`LocalDate.now()`) is applied to the correct statement (FR-005, R-005)
-- [ ] T007 In `VisitControllerTests.java`, record the full body of `processNewVisitFormHasErrorsWhenVisitDateIsNotInFuture` (the test to be replaced) and the stub pattern used by the other POST test that asserts a successful redirect, so the new combined test can reuse the same `ownerRepository.findById` stub and `MockMvc` perform pattern (R-007, R-008, FR-006)
+- [ ] T005 Run `./mvnw test -pl . -Dtest=VisitControllerTests` on unmodified main and confirm the current test count and pass/fail state; record the surefire output as the baseline (resolves NC-3 and establishes KPI-1 baseline)
+- [ ] T006 Run `./mvnw validate` on unmodified main and confirm `spring-javaformat:validate` and `nohttp` checkstyle both pass with zero violations (establishes SC-003 baseline)
 
-**Checkpoint**: Insertion points identified — US1 through US4 edits can now be made with precision.
+**Checkpoint**: Baseline confirmed — user story implementation can now begin.
 
 ---
 
 ## Phase 3: User Story 1 — Clinic Staff Submits a Visit with a Past Date (Priority: P1) 🎯 MVP
 
-**Goal**: `processNewVisitForm` rejects any POST where `visit.date` is non-null and strictly before `LocalDate.now()`, returns HTTP 200 with view `pets/createOrUpdateVisitForm`, records a field error on `date` with error code `visit.date.pastNotAllowed` and default message exactly `"Visit date must be today or in the future."`, and never calls `OwnerRepository.save`.
+**Goal**: `VisitController.processNewVisitForm` rejects any POST whose `date` is before `LocalDate.now()`, returns HTTP 200 with the form view `pets/createOrUpdateVisitForm`, registers a `BindingResult` field error on `"date"` with error code `visit.date.pastNotAllowed` and default message `"Visit date must be today or in the future."`, and does not call `OwnerRepository.save`.
 
-**Independent Test**: POST to `/owners/{ownerId}/pets/{petId}/visits/new` with `date` = yesterday; assert HTTP 200, view `pets/createOrUpdateVisitForm`, field error on `date` with the exact message, and `verify(ownerRepository, never()).save(any())`.
+**Independent Test**: POST a date of `LocalDate.now().minusDays(1)` to `/owners/{ownerId}/pets/{petId}/visits/new` and assert HTTP 200, view `pets/createOrUpdateVisitForm`, a field error on `date` with default message exactly `"Visit date must be today or in the future."`, and `verify(owners, never()).save(any())`.
 
-- [ ] T008 [US1] In `src/main/java/org/springframework/samples/petclinic/owner/VisitController.java`, insert the null-guarded past-date check immediately before the `result.hasErrors()` guard in `processNewVisitForm`: `if (visit.getDate() != null && visit.getDate().isBefore(LocalDate.now())) { result.rejectValue("date", "visit.date.pastNotAllowed", "Visit date must be today or in the future."); }` — the check MUST fall through to the existing `hasErrors()` return so that a simultaneous blank `description` also produces its error in the same response (FR-001, FR-003, FR-008, FR-011, R-002, R-003, R-004)
-- [ ] T009 [US1] In `src/main/java/org/springframework/samples/petclinic/owner/VisitController.java`, add a code comment immediately above the `isBefore` comparison stating: `// "Today" is defined as LocalDate.now() using the JVM's default time zone on the server. No explicit ZoneId override is applied; see spec Assumptions and DEF-8.` (R-010, spec Assumptions)
-- [ ] T010 [US1] Verify by re-reading `src/main/java/org/springframework/samples/petclinic/owner/VisitController.java` that: (a) the `@InitBinder` method and its `setAllowedFields` call are byte-identical to the baseline recorded in T001; (b) no import, field, or method other than the two targeted edits (T008, T009, T006-target) has changed; (c) the error message string contains no concatenation of request data (FR-007, FR-009, SC-002, FR-003)
+### Implementation for User Story 1
 
-**Checkpoint**: Past-date rejection is in place. US1 acceptance scenarios 1, 2, and 3 are satisfiable. US2 implementation can now proceed (it depends on the same method edit being stable).
+- [ ] T007 [US1] In `src/main/java/org/springframework/samples/petclinic/owner/VisitController.java`, insert the null-guarded past-date check immediately before the `result.hasErrors()` guard in `processNewVisitForm`: `if (visit.getDate() != null && visit.getDate().isBefore(LocalDate.now())) { result.rejectValue("date", "visit.date.pastNotAllowed", "Visit date must be today or in the future."); }` — the string literal `"Visit date must be today or in the future."` MUST be a compile-time constant with no concatenation of request data (FR-003, FR-008)
+- [ ] T008 [US1] In `src/main/java/org/springframework/samples/petclinic/owner/VisitController.java`, add a code comment immediately above the `LocalDate.now()` call in `processNewVisitForm` stating: `// "Today" is defined as LocalDate.now() using the JVM default time zone. No explicit ZoneId is specified; the boundary at midnight is therefore determined by the server's JVM time zone.` (research.md §6, spec assumptions)
+- [ ] T009 [US1] Verify in `src/main/java/org/springframework/samples/petclinic/owner/VisitController.java` that the `@InitBinder` method's `setDisallowedFields` (or `setAllowedFields`) body is byte-identical to main after the edit — make no change to it (FR-009)
+- [ ] T010 [US1] Run `./mvnw validate` on the edited `src/main/java/org/springframework/samples/petclinic/owner/VisitController.java` and confirm `spring-javaformat:validate` and `nohttp` checkstyle pass with zero new violations (SC-003)
+
+**Checkpoint**: At this point, the server-side past-date rejection rule is in place. User Story 1 can be verified by running the test added in Phase 6 (US4) or by a manual POST with a past date.
 
 ---
 
 ## Phase 4: User Story 2 — Clinic Staff Submits a Visit with Today's Date (Priority: P1)
 
-**Goal**: `processNewVisitForm` accepts a POST where `visit.date` equals `LocalDate.now()` or is any future date (provided all other fields are valid), calls `OwnerRepository.save` exactly once, and redirects to `redirect:/owners/{ownerId}`. The `minVisitDate` model attribute on GET equals `LocalDate.now()` so the form hint matches the server rule.
+**Goal**: `VisitController.processNewVisitForm` accepts a POST whose `date` equals `LocalDate.now()` (or any future date), calls `OwnerRepository.save(owner)` exactly once, and redirects to `redirect:/owners/{ownerId}`. The `minVisitDate` model attribute on GET equals `LocalDate.now()` so the form hint matches the server rule.
 
-**Independent Test**: POST to `/owners/{ownerId}/pets/{petId}/visits/new` with `date` = today and a valid description; assert 3xx redirect to `/owners/{ownerId}` and `verify(ownerRepository, times(1)).save(any())`.
+**Independent Test**: POST `LocalDate.now()` with a valid description to `/owners/{ownerId}/pets/{petId}/visits/new` and assert a 3xx redirect to `/owners/{ownerId}` and `verify(owners, times(1)).save(any())`. Also GET the form and assert `minVisitDate` equals `LocalDate.now()`.
 
-- [ ] T011 [US2] In `src/main/java/org/springframework/samples/petclinic/owner/VisitController.java`, in `initNewVisitForm`, change the `minVisitDate` model attribute value from `LocalDate.now().plusDays(1)` to `LocalDate.now()` (FR-005, R-005); confirm the template file `src/main/resources/templates/pets/createOrUpdateVisitForm.html` is NOT touched (FR-007)
-- [ ] T012 [US2] Re-read `src/main/java/org/springframework/samples/petclinic/owner/VisitController.java` and confirm that the `processNewVisitForm` method's success path (date >= today, all fields valid) is unchanged: `OwnerRepository.save` is still called and the redirect to `redirect:/owners/{ownerId}` is still returned; confirm no edit was made to the success-path code (FR-002, FR-010, R-003)
+### Implementation for User Story 2
 
-**Checkpoint**: Today's date is accepted and the form hint is updated. US2 acceptance scenarios 1 and 2 are satisfiable. The two P1 stories are now both implemented in `VisitController.java`.
+- [ ] T011 [US2] In `src/main/java/org/springframework/samples/petclinic/owner/VisitController.java`, change the `minVisitDate` model attribute value in `initNewVisitForm` from `LocalDate.now().plusDays(1)` to `LocalDate.now()` (FR-005, research.md §5, data-model.md §VisitController model attributes)
+- [ ] T012 [US2] Confirm in `src/main/java/org/springframework/samples/petclinic/owner/VisitController.java` that the success path in `processNewVisitForm` (the `else` / fall-through after `result.hasErrors()`) is unchanged: `OwnerRepository.save(owner)` is called exactly once and the method returns `"redirect:/owners/{ownerId}"` (FR-002, FR-010)
+- [ ] T013 [US2] Confirm that no change has been made to `src/main/resources/templates/pets/createOrUpdateVisitForm.html` — the template already reads the `minVisitDate` attribute and will reflect the updated value without a template edit (FR-007, spec assumptions)
+- [ ] T014 [US2] Run `./mvnw validate` on the edited `src/main/java/org/springframework/samples/petclinic/owner/VisitController.java` and confirm `spring-javaformat:validate` and `nohttp` checkstyle pass with zero new violations (SC-003)
+
+**Checkpoint**: At this point, today's date is accepted and the form hint matches the server rule. User Story 2 can be verified by the test added in Phase 6 (US4) or by a manual POST with today's date.
 
 ---
 
-## Phase 5: User Story 3 — Missing or Unparseable Date Does Not Trigger the New Error (Priority: P2)
+## Phase 5: User Story 3 — Clinic Staff Submits a Visit with a Missing or Unparseable Date (Priority: P2)
 
-**Goal**: When `date` is null (blank submission) or unparseable, the existing binding error fires and `visit.date.pastNotAllowed` is never emitted. The null guard inserted in T008 is the mechanism; this phase verifies it is correct and that no regression has been introduced.
+**Goal**: The new past-date check does not interfere with the existing blank-date or type-mismatch behaviour. A blank or unparseable date still produces the existing binding error; the error code `visit.date.pastNotAllowed` is absent in those cases.
 
-**Independent Test**: POST with `date` field blank; assert HTTP 200, existing required-field binding error on `date`, and absence of error code `visit.date.pastNotAllowed`. POST with `date` = a non-date string; assert HTTP 200, `typeMismatch` binding error, and absence of `visit.date.pastNotAllowed`.
+**Independent Test**: POST a blank `date` field and assert HTTP 200, the form view, a field error on `date` from the existing required-field constraint, and the absence of error code `visit.date.pastNotAllowed`. POST a non-date string and assert the same absence of the new error code.
 
-- [ ] T013 [US3] Re-read the null-guard condition inserted in T008 in `src/main/java/org/springframework/samples/petclinic/owner/VisitController.java` and confirm it reads `visit.getDate() != null &&` before the `isBefore` call; confirm that when `visit.getDate()` is null the block is skipped entirely and the method falls through to the existing `hasErrors()` guard without calling `rejectValue` (FR-004, R-004, US3 acceptance scenario 1)
-- [ ] T014 [US3] Re-read `src/main/java/org/springframework/samples/petclinic/owner/VisitController.java` and confirm that the `typeMismatch.visitDate` error code is not referenced anywhere in the modified file and that the `@InitBinder` method is byte-identical to the T001 baseline (FR-004, FR-009, R-014)
+### Implementation for User Story 3
 
-**Checkpoint**: Null and type-mismatch paths are unaffected. US3 acceptance scenarios 1 and 2 are satisfiable.
+- [ ] T015 [US3] In `src/main/java/org/springframework/samples/petclinic/owner/VisitController.java`, confirm that the null guard `visit.getDate() != null` in the past-date check (added in T007) is present and correctly short-circuits when `visit.getDate()` is null, so that the new error code is never emitted for a blank or unparseable date (FR-004, research.md §4, spec edge cases)
+- [ ] T016 [US3] Confirm in `src/main/java/org/springframework/samples/petclinic/owner/VisitController.java` that the past-date check is positioned before `result.hasErrors()` and that no change has been made to the binding layer or to any `@InitBinder` configuration that would alter the existing blank/type-mismatch error behaviour (FR-004, FR-008, FR-009)
+- [ ] T017 [US3] Confirm that `src/main/resources/messages.properties` and all `src/main/resources/messages_*.properties` files are byte-identical to main — no new key has been added (FR-003, FR-007)
+
+**Checkpoint**: At this point, the existing null/type-mismatch error path is confirmed unbroken. User Story 3 regression safety is verified.
 
 ---
 
 ## Phase 6: User Story 4 — Automated Test Coverage Confirms Both Outcomes (Priority: P2)
 
-**Goal**: Replace `processNewVisitFormHasErrorsWhenVisitDateIsNotInFuture` in `VisitControllerTests` with a single new test method that (a) posts `LocalDate.now().minusDays(1)` and asserts HTTP 200, view `pets/createOrUpdateVisitForm`, field error on `date` with exact message `"Visit date must be today or in the future."`, and `verify(ownerRepository, never()).save(any())`; then (b) posts `LocalDate.now()` with a valid description and asserts a 3xx redirect and `verify(ownerRepository, times(1)).save(any())`. The class retains exactly 5 test methods. All four other existing tests pass unchanged.
+**Goal**: One JUnit test in `VisitControllerTests` posts yesterday's date and asserts rejection (exact message, no save), then posts today's date and asserts acceptance (3xx redirect, save called once). The replaced test uses `LocalDate.now()` computed at test runtime with no fixed calendar dates. The four other existing tests are unchanged and still pass. The surefire report shows 5 tests, 0 failures, 0 errors.
 
-**Independent Test**: `mvn test -pl . -Dtest=VisitControllerTests`; surefire report shows 5 tests, 0 failures, 0 errors.
+**Independent Test**: Run `./mvnw test -pl . -Dtest=VisitControllerTests` and read the surefire report: 5 tests, 0 failures, 0 errors. The replacement test asserts the exact string `"Visit date must be today or in the future."` from `BindingResult`.
 
-- [ ] T015 [US4] In `src/test/java/org/springframework/samples/petclinic/owner/VisitControllerTests.java`, remove the method `processNewVisitFormHasErrorsWhenVisitDateIsNotInFuture` in its entirety (FR-006, R-007, KPI-1)
-- [ ] T016 [US4] In `src/test/java/org/springframework/samples/petclinic/owner/VisitControllerTests.java`, add a new test method (suggested name: `processNewVisitFormRejectsPastDateAndAcceptsToday`) that: (1) computes `LocalDate today = LocalDate.now();` once at the top of the method; (2) stubs `ownerRepository.findById(ownerId)` to return a populated `Owner` containing a `Pet` with the correct `petId` (reuse the stub pattern identified in T007); (3) performs a MockMvc POST to `/owners/{ownerId}/pets/{petId}/visits/new` with `date` = `today.minusDays(1).toString()` and a valid `description`, asserts HTTP status 200, model attribute `view` or `andExpect(view().name("pets/createOrUpdateVisitForm"))`, and `andExpect(model().attributeHasFieldErrorCode("visit", "date", "visit.date.pastNotAllowed"))` plus assertion that the default message equals exactly `"Visit date must be today or in the future."`; (4) calls `verify(ownerRepository, never()).save(any())` after the rejection perform; (5) performs a second MockMvc POST to the same path with `date` = `today.toString()` and a valid `description`; (6) asserts a 3xx redirect to `/owners/{ownerId}`; (7) calls `verify(ownerRepository, times(1)).save(any())` (FR-006, R-007, R-008, KPI-1, KPI-2, US1 acceptance scenario 1, US2 acceptance scenario 1)
-- [ ] T017 [US4] Re-read `src/test/java/org/springframework/samples/petclinic/owner/VisitControllerTests.java` in full and confirm: (a) the class contains exactly 5 test methods (the 4 unchanged originals plus the new method from T016); (b) no fixed calendar date literal (e.g., `LocalDate.of(...)`) appears in the new method; (c) the four pre-existing test methods are byte-identical to the T002 baseline; (d) no import was removed that the existing tests depend on (FR-006, FR-007, KPI-1, SC-001, R-007)
+### Implementation for User Story 4
 
-**Checkpoint**: Test coverage deliverable is complete. KPI-1 and KPI-2 are satisfiable by running `mvn test -pl . -Dtest=VisitControllerTests`.
+- [ ] T018 [US4] In `src/test/java/org/springframework/samples/petclinic/owner/VisitControllerTests.java`, remove the existing test method `processNewVisitFormHasErrorsWhenVisitDateIsNotInFuture` entirely (FR-006, research.md §7, KPI-1)
+- [ ] T019 [US4] In `src/test/java/org/springframework/samples/petclinic/owner/VisitControllerTests.java`, add a new test method (replacing the one removed in T018) that: (a) computes `LocalDate today = LocalDate.now()` and `LocalDate yesterday = today.minusDays(1)` once at the start of the method; (b) performs a MockMvc POST with `date` set to `yesterday` and a valid `description`, asserts HTTP 200, view name `pets/createOrUpdateVisitForm`, a field error on `"date"` whose default message is exactly `"Visit date must be today or in the future."`, and `verify(owners, never()).save(any())`; (c) performs a MockMvc POST with `date` set to `today` and a valid `description`, asserts a 3xx redirect to `/owners/{ownerId}`, and `verify(owners, times(1)).save(any())` — the method MUST NOT use any fixed calendar date literal (FR-006, research.md §7, KPI-1, KPI-2)
+- [ ] T020 [US4] In `src/test/java/org/springframework/samples/petclinic/owner/VisitControllerTests.java`, confirm that the mock setup used by the new test (e.g., `given(owners.findById(...)).willReturn(...)`) is consistent with the shared mock configuration recorded in T002, so that the other four existing test methods are unaffected (research.md §7, SC-001)
+- [ ] T021 [US4] Run `./mvnw test -pl . -Dtest=VisitControllerTests` and confirm the surefire report shows exactly 5 tests, 0 failures, 0 errors, and that the new test's assertion on the exact string `"Visit date must be today or in the future."` passes (KPI-1, KPI-2)
+- [ ] T022 [US4] Run `./mvnw validate` on the edited `src/test/java/org/springframework/samples/petclinic/owner/VisitControllerTests.java` and confirm `spring-javaformat:validate` and `nohttp` checkstyle pass with zero new violations (SC-003)
+
+**Checkpoint**: At this point, both the controller change and the test replacement are complete. The surefire report confirms both KPIs.
 
 ---
 
 ## Phase 7: Polish & Cross-Cutting Concerns
 
-**Purpose**: Final scope verification, regression confirmation, and commit hygiene. No new logic is introduced in this phase.
+**Purpose**: Full-suite regression check, diff-scope verification, and rollback documentation.
 
-- [ ] T018 [P] Re-read `src/main/java/org/springframework/samples/petclinic/owner/Visit.java` and confirm it is byte-identical to the baseline recorded in T003; specifically confirm the default constructor still sets `this.date = LocalDate.now().plusDays(1)` and no annotation was added to the `date` field (FR-007, FR-012, SC-002, R-012)
-- [ ] T019 [P] Re-read `src/main/resources/messages.properties` and `src/main/resources/messages_de.properties` and confirm neither file contains the key `visit.date.pastNotAllowed`; confirm both files are byte-identical to the T004 baseline (FR-003, FR-007, R-006, R-013)
-- [ ] T020 Perform a mental `git diff` review: enumerate every file that has been modified and confirm the list is exactly `src/main/java/org/springframework/samples/petclinic/owner/VisitController.java` and `src/test/java/org/springframework/samples/petclinic/owner/VisitControllerTests.java`; confirm no template, message bundle, schema file, seed file, Kubernetes manifest, CI configuration, or `pom.xml` was touched (SC-002, FR-007, R-009)
-- [ ] T021 Review `src/main/java/org/springframework/samples/petclinic/owner/VisitController.java` for `spring-javaformat` compliance: confirm no line exceeds the project's configured line-length limit, imports are ordered correctly, and no trailing whitespace was introduced; the `nohttp` checkstyle rule requires no bare `http://` URLs in source comments — confirm the new comment added in T009 uses no URL (SC-003)
-- [ ] T022 Review `src/test/java/org/springframework/samples/petclinic/owner/VisitControllerTests.java` for `spring-javaformat` compliance: confirm the new test method follows the same indentation, brace style, and import ordering as the existing methods in the class (SC-003)
-
-**Checkpoint**: All files verified. The change is ready for commit as a single commit touching only the two permitted files.
+- [ ] T023 Run `./mvnw test` (full suite) and confirm that `ClinicServiceTests`, `PetClinicIntegrationTests`, `OwnerControllerTests`, `PetControllerTests`, and `I18nPropertiesSyncTest` all pass with no assertion edits to any file other than `VisitControllerTests.java` (SC-001, KPI-1)
+- [ ] T024 Run `git diff --name-only origin/main` and confirm the output is exactly two lines: `src/main/java/org/springframework/samples/petclinic/owner/VisitController.java` and `src/test/java/org/springframework/samples/petclinic/owner/VisitControllerTests.java` — no other file appears (SC-002, FR-007)
+- [ ] T025 Confirm `src/main/java/org/springframework/samples/petclinic/owner/Visit.java` is byte-identical to main by running `git diff src/main/java/org/springframework/samples/petclinic/owner/Visit.java` and asserting empty output (FR-007)
+- [ ] T026 Run the quickstart.md validation scenario 5 (optional manual smoke test): `./mvnw spring-boot:run`, navigate to any owner → pet → "Add Visit", enter a past date and confirm the message "Visit date must be today or in the future." is displayed, then enter today's date and confirm redirect to the owner detail page with the visit in history (quickstart.md §Validation scenario 5)
+- [ ] T027 Record in the commit message or story description: the three behaviour changes (error code `visit.date.pastNotAllowed` added, exact error text `"Visit date must be today or in the future."`, today's date now accepted), and the rollback procedure (`git revert <commit-sha>` followed by redeploy; no schema migration to reverse) (SC-002, plan.md §E1-S1 accepted-when criteria)
 
 ---
 
@@ -124,56 +133,57 @@ Single-project Maven layout. All source paths are relative to the repository roo
 
 ### Phase Dependencies
 
-- **Setup (Phase 1)**: No dependencies — start immediately
-- **Foundational (Phase 2)**: Depends on Phase 1 completion — BLOCKS all user-story phases
-- **US1 (Phase 3)**: Depends on Phase 2 — implements the core rejection rule in `VisitController.java`
-- **US2 (Phase 4)**: Depends on Phase 3 being stable (both edits land in the same method and file) — implements `minVisitDate` change and confirms success path
-- **US3 (Phase 5)**: Depends on Phase 3 (null guard must be in place before it can be verified) — read-only verification; no new edits
-- **US4 (Phase 6)**: Depends on Phases 3 and 4 (the controller behaviour being final before the test is written) — edits `VisitControllerTests.java`
-- **Polish (Phase 7)**: Depends on all prior phases — final verification only
+- **Setup (Phase 1)**: No dependencies — start immediately; read-only file inspection
+- **Foundational (Phase 2)**: Depends on Phase 1 completion — establishes baseline before any edit
+- **US1 (Phase 3)**: Depends on Phase 2 — edits `VisitController.java` (past-date check)
+- **US2 (Phase 4)**: Depends on Phase 2 — edits `VisitController.java` (`minVisitDate`); can run in parallel with Phase 3 because both edits are in the same file and must be sequenced within that file
+- **US3 (Phase 5)**: Depends on Phase 3 completion — confirms null-guard behaviour introduced in T007
+- **US4 (Phase 6)**: Depends on Phase 3 and Phase 4 completion — the replacement test asserts both rejection (US1) and acceptance (US2)
+- **Polish (Phase 7)**: Depends on all prior phases complete
 
 ### User Story Dependencies
 
-- **US1 (P1)**: Depends only on Foundational phase — no dependency on other stories
-- **US2 (P1)**: Depends on US1 being stable (both touch `processNewVisitForm` and `initNewVisitForm` in the same file; sequential editing avoids conflicts)
-- **US3 (P2)**: Depends on US1 (null guard must exist to verify); no new edits — can be verified immediately after US1
-- **US4 (P2)**: Depends on US1 and US2 being complete (test asserts the final controller behaviour)
+- **US1 (P1)**: Can start after Foundational (Phase 2) — no dependency on other stories
+- **US2 (P1)**: Can start after Foundational (Phase 2) — the `minVisitDate` edit is independent of the past-date check edit within the same file; sequence the two edits within `VisitController.java` to avoid conflicts
+- **US3 (P2)**: Depends on US1 (Phase 3) — verifies the null-guard introduced in T007
+- **US4 (P2)**: Depends on US1 and US2 — the replacement test covers both rejection and acceptance
 
 ### Within Each User Story
 
-- Implementation edits before verification re-reads
-- `VisitController.java` edits (US1, US2) before `VisitControllerTests.java` edits (US4)
-- No story requires a new class, new file, or new dependency
+- Read live files (Phase 1) before any edit
+- Confirm baseline (Phase 2) before any edit
+- Controller edits (US1, US2) before test edits (US4)
+- Null-guard confirmation (US3) after controller edit (US1)
+- Full-suite run (Phase 7) after all edits
 
 ### Parallel Opportunities
 
 - T001, T002, T003, T004 (Phase 1) can all run in parallel — all are read-only
-- T005, T006, T007 (Phase 2) can all run in parallel — all are read-only
-- T013 and T014 (Phase 5) can run in parallel — both are read-only verifications of already-written code
-- T018 and T019 (Phase 7) can run in parallel — both are read-only verifications of unchanged files
-- T021 and T022 (Phase 7) can run in parallel — they target different files
+- T005 and T006 (Phase 2) can run in parallel — independent Maven invocations
+- T007 and T011 are both edits to `VisitController.java`; they MUST be sequenced (same file) — apply both edits before running any validation
+- T010 and T014 (checkstyle runs on `VisitController.java`) should be combined into a single `./mvnw validate` after both T007 and T011 are applied
+- T018, T019, T020 are all edits to `VisitControllerTests.java`; they MUST be sequenced (same file)
+- T023, T024, T025 (Phase 7 verification tasks) can run in parallel after all edits are complete
 
 ---
 
 ## Parallel Example: Phase 1 (Setup)
 
 ```
-# All four orientation reads can proceed simultaneously:
-Task T001: Read VisitController.java — src/main/java/.../owner/VisitController.java
-Task T002: Read VisitControllerTests.java — src/test/java/.../owner/VisitControllerTests.java
-Task T003: Read Visit.java — src/main/java/.../owner/Visit.java
-Task T004: Read messages.properties + messages_de.properties — src/main/resources/
+# All four read-only inspection tasks can run simultaneously:
+Task T001: Read VisitController.java on main
+Task T002: Read VisitControllerTests.java on main (mock setup)
+Task T003: Read VisitControllerTests.java on main (test count)
+Task T004: Read I18nPropertiesSyncTest.java on main
 ```
 
 ## Parallel Example: Phase 7 (Polish)
 
 ```
-# Scope-verification reads can proceed simultaneously:
-Task T018: Verify Visit.java byte-identical — src/main/java/.../owner/Visit.java
-Task T019: Verify no pastNotAllowed key — src/main/resources/messages*.properties
-# Format checks can proceed simultaneously after T018/T019:
-Task T021: spring-javaformat check — src/main/java/.../owner/VisitController.java
-Task T022: spring-javaformat check — src/test/java/.../owner/VisitControllerTests.java
+# After all edits are committed, these verification tasks can run simultaneously:
+Task T023: ./mvnw test  (full suite)
+Task T024: git diff --name-only origin/main  (diff scope)
+Task T025: git diff src/.../Visit.java  (byte-identical check)
 ```
 
 ---
@@ -182,41 +192,44 @@ Task T022: spring-javaformat check — src/test/java/.../owner/VisitControllerTe
 
 ### MVP First (User Story 1 Only)
 
-1. Complete Phase 1: Setup (read-only orientation)
-2. Complete Phase 2: Foundational (read-only analysis — identifies insertion points)
-3. Complete Phase 3: US1 — insert past-date check in `VisitController.java`
-4. **STOP and VALIDATE**: The rejection rule is in place; a manual POST with a past date can be verified against the running application or by reading the code
-5. Proceed to US2, US3, US4 in order
+1. Complete Phase 1: Setup (read live files)
+2. Complete Phase 2: Foundational (confirm baseline)
+3. Complete Phase 3: User Story 1 (past-date check in controller)
+4. **STOP and VALIDATE**: POST a past date manually or via a quick MockMvc test and confirm HTTP 200 + error message + no save
+5. Proceed to US2, US3, US4
 
 ### Incremental Delivery
 
-1. Phase 1 + Phase 2 → orientation complete
-2. Phase 3 (US1) → past-date rejection live in `VisitController.java`
-3. Phase 4 (US2) → today accepted, `minVisitDate` hint corrected
-4. Phase 5 (US3) → null/type-mismatch regression confirmed
-5. Phase 6 (US4) → test coverage deliverable complete; `mvn test -pl . -Dtest=VisitControllerTests` passes with 5 tests, 0 failures
-6. Phase 7 (Polish) → scope verified, format checked, ready to commit
+1. Complete Setup + Foundational → baseline confirmed
+2. Apply US1 controller edit → past-date rejection in place
+3. Apply US2 controller edit → today accepted, `minVisitDate` updated
+4. Confirm US3 null-guard → existing blank/type-mismatch path unbroken
+5. Replace test (US4) → machine-readable proof of both KPIs
+6. Polish phase → full suite green, diff scope confirmed, commit message written
 
-### Single-Developer Sequential Strategy
+### Single-Developer Sequence (recommended)
 
-Because all changes land in exactly two files and the total edit surface is small (one new `if` block, one expression change, one test method replacement), a single developer can complete all phases in one sitting:
+Because FR-007 restricts all changes to exactly two files, parallel team execution offers no benefit. The recommended sequence is strictly linear:
 
-1. Read all four baseline files (T001–T004 in parallel)
-2. Identify insertion points (T005–T007 in parallel)
-3. Edit `VisitController.java`: insert null-guarded `rejectValue` call (T008), add comment (T009), change `minVisitDate` (T011)
-4. Verify `VisitController.java` is correct (T010, T012, T013, T014)
-5. Edit `VisitControllerTests.java`: remove old test (T015), add new combined test (T016)
-6. Verify `VisitControllerTests.java` is correct (T017)
-7. Run final cross-cutting checks (T018–T022)
-8. Commit as a single commit
+1. T001 → T002 → T003 → T004 (read live files)
+2. T005 → T006 (confirm baseline)
+3. T007 → T008 → T009 (US1 controller edits)
+4. T011 → T012 → T013 (US2 controller edits)
+5. T010 / T014 combined: `./mvnw validate` on `VisitController.java`
+6. T015 → T016 → T017 (US3 confirmation)
+7. T018 → T019 → T020 (US4 test replacement)
+8. T021 → T022 (US4 surefire + checkstyle)
+9. T023 → T024 → T025 → T026 → T027 (Polish)
 
 ---
 
 ## Notes
 
-- [P] tasks operate on different files or are read-only and have no write-dependency conflicts
-- Every task references the exact file path it targets
-- `Visit.java`, all `messages*.properties` files, all templates, all schema/seed files, `pom.xml`, `k8s/`, and `.github/` are read-only or untouched throughout — any edit to these files is a scope violation (SC-002, FR-007)
-- The midnight-boundary flake (DEF-8) is an accepted risk; `LocalDate.now()` is computed once per test run in T016 to minimise (not eliminate) it
-- The non-English locale gap (DEF-5) is accepted debt; no `messages*.properties` entry is added in this story
-- Commit after Phase 7 completes; the `git diff` against the base commit on main MUST list exactly `VisitController.java` and `VisitControllerTests.java`
+- **Two-file constraint is absolute**: FR-007 and SC-002 prohibit any change outside `VisitController.java` and `VisitControllerTests.java`. If any task appears to require a third file, stop and re-read the spec before proceeding.
+- **Exact error message is a hard requirement**: The string `"Visit date must be today or in the future."` must appear verbatim as a compile-time constant in `VisitController.java`. Do not externalise it to a properties file, do not concatenate request data into it.
+- **Error code `visit.date.pastNotAllowed` must not be used for type-mismatch**: FR-004 reserves the existing type-mismatch error code for genuinely unparseable dates. The new code applies only to non-null, parseable, past dates.
+- **`LocalDate.now()` no-arg form**: Use the no-arg form throughout (controller and test). Do not introduce a `ZoneId` argument or an injectable `Clock` — both are out of scope per the plan's risk register.
+- **Test count is exactly 5**: Replacing one test (not adding one) keeps the count at 5. If the baseline count recorded in T003 is not 4, stop and investigate before proceeding with T018.
+- **NC-4 residual**: If T004 reveals that `I18nPropertiesSyncTest` scans Java source for error-code strings, the implementer must assess whether `visit.date.pastNotAllowed` appearing in `VisitController.java` will cause a failure. The expected outcome (per research.md §8) is that no action is required, but this must be confirmed before committing.
+- **`[P]` tasks**: Tasks marked `[P]` in Phases 1 and 7 can run in parallel. Tasks in Phases 3–6 that edit the same file must be sequenced within that file even when they belong to different user stories.
+- Commit after all edits are complete and all verification tasks pass — deliver as a single commit per SC-002.

@@ -1,152 +1,240 @@
-# Contract: Visit Form POST — New Visit Submission
+# Contract: New Visit Form POST
 
-**Contract type**: HTTP endpoint (Spring MVC controller action)
-**Status**: MUST NOT BREAK (existing behaviour) + EXTENDED (new past-date rejection)
+**Contract ID**: `visit-form-post`
 **Feature**: `010-reject-past-visit-dates-15ab17d7`
 **Date**: 2026-10-26
+**Status**: Active
 
 ---
 
 ## Overview
 
-This contract describes the HTTP POST endpoint that creates a new visit for a pet. The route, method, field names, success redirect, and error re-render behaviour are all pre-existing. This change extends the contract by adding one new rejection condition (past date) while leaving every other observable behaviour identical to main.
+This contract describes the HTTP interface for creating a new veterinary visit in the Spring PetClinic application. It covers both the GET (form initialisation) and POST (form submission) interactions on the new-visit route. The POST contract is the primary subject of this feature; the GET contract is included because one model attribute changes.
+
+This document records both **what must not break** (existing behaviour that stays unchanged) and **what changes** (the new past-date rejection rule and the updated `minVisitDate` attribute).
 
 ---
 
-## Endpoint
+## Route
 
-| Property | Value |
-|---|---|
-| Method | `POST` |
-| Path | `/owners/{ownerId}/pets/{petId}/visits/new` |
-| Path variables | `ownerId` — integer owner identifier; `petId` — integer pet identifier |
-| Controller | `org.springframework.samples.petclinic.owner.VisitController#processNewVisitForm` |
+```
+GET  /owners/{ownerId}/pets/{petId}/visits/new
+POST /owners/{ownerId}/pets/{petId}/visits/new
+```
 
----
+**Path parameters**:
 
-## Request
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `ownerId` | Integer | Primary key of the owner who owns the pet |
+| `petId` | Integer | Primary key of the pet for which the visit is being created |
 
-### Path Parameters
-
-| Parameter | Type | Required | Description |
-|---|---|---|---|
-| `ownerId` | integer | yes | Identifies the owner aggregate to which the visit is appended |
-| `petId` | integer | yes | Identifies the pet within the owner aggregate |
-
-### Form Fields
-
-| Field | Type | Required | Constraints |
-|---|---|---|---|
-| `date` | `LocalDate` (ISO-8601 string `yyyy-MM-dd` in the form body) | yes (existing binding) | Must be today (`LocalDate.now()` on the server) or any future date. A past date is now rejected. A blank or non-parseable value triggers the existing binding error before this rule is reached. |
-| `description` | string | yes (existing `@NotBlank`) | Free text; existing validation unchanged |
-
-No other fields are accepted. The `id` and `*.id` fields remain disallowed by the existing `@InitBinder` rule and MUST NOT be submitted.
+Both parameters are resolved by Spring MVC from the URL path. The controller loads the owner via `OwnerRepository.findById(ownerId)` and the pet from the owner's pet collection. If the owner or pet does not exist, behaviour is unchanged from main (NEEDS CLARIFICATION: exact 404 vs. exception behaviour is not specified by this feature and must not be altered).
 
 ---
 
-## Responses
+## GET — Form Initialisation
 
-### Success — Visit Accepted
+### Request
 
-**Condition**: `date` is today or in the future, `description` is non-blank, owner and pet exist.
+```
+GET /owners/{ownerId}/pets/{petId}/visits/new
+```
+
+No request body. No required query parameters.
+
+### Response
+
+| Field | Before this change | After this change |
+|-------|--------------------|-------------------|
+| HTTP status | 200 | 200 (unchanged) |
+| View | `pets/createOrUpdateVisitForm` | `pets/createOrUpdateVisitForm` (unchanged) |
+| Model attribute: `visit` | New `Visit` instance; `date` defaults to `LocalDate.now().plusDays(1)` (tomorrow) | Unchanged — the `Visit` default constructor is not modified |
+| Model attribute: `minVisitDate` | `LocalDate.now().plusDays(1)` (tomorrow) | `LocalDate.now()` (today) |
+| All other model attributes | Unchanged | Unchanged |
+
+**Change note**: `minVisitDate` moves from tomorrow to today so that the form's minimum-date hint matches the server-side acceptance rule (FR-005). The Thymeleaf template `pets/createOrUpdateVisitForm.html` is not modified; it already reads this attribute by name.
+
+---
+
+## POST — Form Submission
+
+### Request
+
+```
+POST /owners/{ownerId}/pets/{petId}/visits/new
+Content-Type: application/x-www-form-urlencoded
+```
+
+**Form fields**:
+
+| Field | Type after binding | Notes |
+|-------|--------------------|-------|
+| `date` | `LocalDate` | Parsed by Spring MVC's date binder. Blank or unparseable values produce a binding error before the controller method body is entered. |
+| `description` | `String` | Free text. Existing `@NotBlank` constraint on `Visit.description` applies. |
+
+**Disallowed fields** (enforced by `@InitBinder`, unchanged):
+
+```
+id
+*.id
+```
+
+Any attempt to submit `id` or a nested `*.id` field is silently discarded by the binder. This behaviour is identical before and after the change (FR-009).
+
+---
+
+### Response: Success
+
+**Condition**: `date` is non-null, parseable, and `>= LocalDate.now()` (today or any future date); `description` is non-blank; all other existing validations pass.
+
+```
+HTTP 302 (or other 3xx redirect)
+Location: /owners/{ownerId}
+```
+
+**Side effects**:
+- `OwnerRepository.save(owner)` is called exactly once.
+- The new `Visit` is appended to the pet's visit history.
+
+This behaviour is **unchanged from main** for future dates (FR-002). The only change is that today's date (`LocalDate.now()`) is now also accepted, where previously it was rejected by the old test expectation.
+
+---
+
+### Response: Rejection — Past Date *(new behaviour)*
+
+**Condition**: `date` is non-null, parseable, and `< LocalDate.now()` (strictly before today on the server's JVM default time zone).
+
+```
+HTTP 200
+View: pets/createOrUpdateVisitForm
+```
+
+**`BindingResult` field error on `"date"`**:
 
 | Property | Value |
-|---|---|
-| HTTP status | 3xx (redirect) |
-| `Location` header | `redirect:/owners/{ownerId}` |
-| Side effect | `OwnerRepository.save(owner)` called exactly once |
-
-This behaviour is unchanged from main.
-
-### Rejection — Past Date (NEW)
-
-**Condition**: `date` is non-null, parses successfully as a `LocalDate`, and is strictly before `LocalDate.now()` on the server at the moment of the request.
-
-| Property | Value |
-|---|---|
-| HTTP status | 200 OK |
-| View | `pets/createOrUpdateVisitForm` |
-| Field error field | `date` |
+|----------|-------|
+| Field | `date` |
 | Error code | `visit.date.pastNotAllowed` |
-| Default message | `Visit date must be today or in the future.` (exact string; compile-time constant; no request data concatenated) |
-| Side effect | `OwnerRepository.save` is NOT called |
+| Default message | `Visit date must be today or in the future.` |
 
-The error message is supplied as the `defaultMessage` argument to `result.rejectValue` and is not resolved from any `messages*.properties` file. Non-English locales display this English text (accepted deviation DEF-5; follow-up story required).
+The default message is a compile-time string constant in `VisitController`. It is not resolved from any `messages*.properties` file. No `messages*.properties` file is modified by this feature (FR-003).
 
-### Rejection — Validation Errors (UNCHANGED)
+**Side effects**:
+- `OwnerRepository.save` is **not** called.
+- No visit is persisted.
 
-**Condition**: Any combination of field errors other than, or in addition to, a past date (e.g., blank `description`, type-mismatch on `date`).
+**"Today" definition**: The server evaluates `LocalDate.now()` using the JVM's default time zone at the moment the request is processed. No explicit `ZoneId` is specified. This is documented in a code comment in `VisitController`. The boundary behaviour at midnight is therefore determined by the server's JVM time zone.
 
-| Property | Value |
-|---|---|
-| HTTP status | 200 OK |
-| View | `pets/createOrUpdateVisitForm` |
-| Field errors | All accumulated errors returned together in the same response |
-| Side effect | `OwnerRepository.save` is NOT called |
+---
 
-When both `date` is past and `description` is blank, both field errors are present in the same 200 response. Neither suppresses the other.
+### Response: Rejection — Blank or Unparseable Date *(existing behaviour, unchanged)*
 
-### Rejection — Null or Unparseable Date (UNCHANGED)
+**Condition**: The `date` field is blank, absent, or contains a value that cannot be parsed as a `LocalDate` by Spring MVC's date binder.
 
-**Condition**: `date` field is blank or contains a value that cannot be parsed as a `LocalDate`.
+```
+HTTP 200
+View: pets/createOrUpdateVisitForm
+```
 
-| Property | Value |
-|---|---|
-| HTTP status | 200 OK |
-| View | `pets/createOrUpdateVisitForm` |
-| Field error | Existing required-field or `typeMismatch` binding error on `date` |
-| Error code present | `visit.date.pastNotAllowed` is NOT present |
-| Side effect | `OwnerRepository.save` is NOT called |
+**`BindingResult` error on `"date"`**: Existing binding or type-mismatch error (error code is **not** `visit.date.pastNotAllowed`).
 
-The past-date check is guarded by a `visit.getDate() != null` condition and is not reached when binding fails.
+The new past-date check is **not reached** in this path. The binding layer fires before the controller method body is entered; `visit.getDate()` is null (or retains the `Visit` constructor default), and the null guard in the controller prevents the past-date check from executing (FR-004, User Story 3).
 
-### Rejection — Owner or Pet Not Found (UNCHANGED)
+**Side effects**:
+- `OwnerRepository.save` is **not** called.
 
-Behaviour when `ownerId` or `petId` does not resolve to a known entity is unchanged from main.
+---
 
-NEEDS CLARIFICATION: The exact HTTP status and view returned when `ownerId` or `petId` is not found is not specified in the feature spec. This contract does not alter that behaviour; it is documented here as unchanged.
+### Response: Rejection — Blank Description *(existing behaviour, unchanged)*
+
+**Condition**: `date` is valid (today or future); `description` is blank or null.
+
+```
+HTTP 200
+View: pets/createOrUpdateVisitForm
+```
+
+**`BindingResult` field error on `"description"`**: Existing `@NotBlank` constraint error.
+
+**Side effects**:
+- `OwnerRepository.save` is **not** called.
+
+---
+
+### Response: Combined Rejection — Past Date AND Blank Description *(clarified behaviour)*
+
+**Condition**: `date` is non-null, parseable, and `< LocalDate.now()`; `description` is also blank or null.
+
+```
+HTTP 200
+View: pets/createOrUpdateVisitForm
+```
+
+**`BindingResult` field errors** (both present in the same response):
+
+| Field | Error code | Default message |
+|-------|------------|-----------------|
+| `date` | `visit.date.pastNotAllowed` | `Visit date must be today or in the future.` |
+| `description` | (existing `@NotBlank` code) | (existing message) |
+
+Neither error suppresses the other (FR-011). The past-date check runs before `result.hasErrors()` so that it adds its error regardless of whether a description error is already present. The `result.hasErrors()` guard then catches both errors together and returns the form view.
+
+**Side effects**:
+- `OwnerRepository.save` is **not** called.
 
 ---
 
 ## Error Code Registry
 
-| Code | Field | Introduced by | Default message |
-|---|---|---|---|
-| `visit.date.pastNotAllowed` | `date` | This feature | `Visit date must be today or in the future.` |
-| `typeMismatch.visitDate` | `date` | Pre-existing | (unchanged; not used for past-date rejection) |
+| Error code | Introduced by | Applies to field | Condition |
+|------------|---------------|------------------|-----------|
+| `visit.date.pastNotAllowed` | This feature | `date` | `date` is non-null, parseable, and before `LocalDate.now()` |
+| `typeMismatch.visitDate` (or equivalent) | Pre-existing | `date` | `date` field value cannot be parsed as `LocalDate` |
+| (existing `@NotBlank` code) | Pre-existing | `description` | `description` is blank or null |
+
+The error code `typeMismatch.visitDate` MUST NOT be used for the past-date rejection (FR-004). It remains available exclusively for genuine type-mismatch failures.
 
 ---
 
-## Model Attributes (GET — UNCHANGED except `minVisitDate`)
+## Unchanged Behaviours (Must Not Break)
 
-The GET handler for the same path populates the model before the form is rendered. This contract records the one attribute that changes value.
+The following behaviours are identical before and after this change. Any implementation that alters them is non-conforming.
 
-| Attribute | Previous value | New value | Template usage |
-|---|---|---|---|
-| `minVisitDate` | `LocalDate.now().plusDays(1)` (tomorrow) | `LocalDate.now()` (today) | Read by `createOrUpdateVisitForm.html` to set the `min` attribute on the date input; template file is not changed |
-
-All other model attributes are unchanged.
-
----
-
-## Invariants That Must Not Break
-
-The following behaviours are present on main and MUST remain identical after this change.
-
-1. The route `/owners/{ownerId}/pets/{petId}/visits/new` and the HTTP method `POST` are unchanged.
-2. The form field names `date` and `description` are unchanged.
-3. The success redirect target `redirect:/owners/{ownerId}` is unchanged.
-4. The error view `pets/createOrUpdateVisitForm` is unchanged.
-5. The `@InitBinder` disallowed-field rule for `id` and `*.id` on the visit form binder is unchanged; `setAllowedFields` is not modified.
-6. A future date (any date after today) is accepted and saved; this existing behaviour is preserved.
-7. A null or unparseable `date` produces only the existing binding error; `visit.date.pastNotAllowed` is not emitted.
-8. `OwnerRepository.save` is never called when any field error is present.
-9. No `messages*.properties` file is modified; no new i18n key is introduced.
-10. `Visit.java` is byte-identical before and after the change; no entity-level annotation is added.
-11. Past-dated visit rows already stored in the database are not affected; the validation applies only to new-visit POST submissions.
+| Behaviour | Requirement |
+|-----------|-------------|
+| Route (`/owners/{ownerId}/pets/{petId}/visits/new`) | FR-010 |
+| HTTP methods accepted (GET, POST) | FR-010 |
+| Form field names (`date`, `description`) | FR-010 |
+| Success redirect target (`redirect:/owners/{ownerId}`) | FR-010, FR-002 |
+| Flash message on success (if any; unchanged) | FR-010 |
+| HTTP 200 re-render of form view on any validation error | FR-001, FR-010 |
+| `@InitBinder` `setDisallowedFields("id", "*.id")` body | FR-009 |
+| Acceptance of future dates (any date after today) | FR-002 |
+| `Visit.java` entity class (byte-identical) | FR-007 |
+| `messages*.properties` files (no new key added) | FR-003, FR-007 |
+| `createOrUpdateVisitForm.html` template (not modified) | FR-007 |
+| Schema, seed data, and database migration files | FR-012 |
+| Past-dated visit rows already stored in the database | FR-012 |
+| All other controller methods on `VisitController` | FR-007 |
 
 ---
 
-## Time-Zone Note
+## Out-of-Scope Interfaces
 
-`LocalDate.now()` is evaluated without an explicit `ZoneId`. "Today" is therefore the date in the JVM's default time zone on the server at the moment of the request. This is documented in a code comment in `VisitController`. No special handling is applied at the midnight boundary; this is an accepted risk (DEF-8).
+The following interfaces exist in the application but are not affected by this feature and are not governed by this contract:
+
+- `GET /owners/{ownerId}` (owner detail page — success redirect target only)
+- `GET /owners/{ownerId}/pets/{petId}` (pet detail)
+- All veterinarian, owner search, and pet registration endpoints
+- Spring Boot Actuator endpoints (`/actuator/*`)
+
+---
+
+## Implementation Notes
+
+- The past-date check is inserted in `VisitController.processNewVisitForm` **before** the `result.hasErrors()` guard, with an explicit null guard: `if (visit.getDate() != null && visit.getDate().isBefore(LocalDate.now()))`.
+- The check is server-side and non-bypassable for a non-null, parseable date (FR-008).
+- The `minVisitDate` change is in `initNewVisitForm` (the GET handler's `@ModelAttribute` setup), not in `processNewVisitForm`.
+- NEEDS CLARIFICATION (NC-1): The exact current method signatures and structure of `processNewVisitForm` and `initNewVisitForm` in the live `VisitController.java` on main must be confirmed by the implementer before coding. The contract above describes the required post-change behaviour; the insertion point depends on the live source.
+- NEEDS CLARIFICATION (NC-4): The implementer must confirm that `I18nPropertiesSyncTest` does not scan Java source for error code strings. If it does, the error code `visit.date.pastNotAllowed` appearing in Java source may need to be handled. The expected outcome is that no action is required, but this must be verified against the live test source.
