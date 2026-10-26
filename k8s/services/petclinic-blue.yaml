@@ -1,0 +1,22 @@
+# petclinic-blue ClusterIP Service
+# SPEC-PLAT-13: Direct per-slot ClusterIP Service for the blue deployment slot.
+# Exposes only port 8080; type ClusterIP ensures no external reachability.
+# Intra-cluster traffic from green pods to this Service on port 8080 is permitted.
+apiVersion: v1
+kind: Service
+metadata:
+  name: petclinic-blue
+  labels:
+    app: petclinic
+    slot: blue
+    component: per-slot-service
+spec:
+  type: ClusterIP
+  selector:
+    app: petclinic
+    slot: blue
+  ports:
+    - name: http
+      protocol: TCP
+      port: 8080
+      targetPort: 8080
