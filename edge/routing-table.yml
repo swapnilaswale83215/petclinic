@@ -1,0 +1,93 @@
+# Edge Routing Table — S3 Flip Artefact
+# NEEDS CLARIFICATION: exact YAML schema and upstream reference syntax depend on
+# the edge technology choice (research item 5a, resolved in E4-S6).
+# Update field names and upstream syntax once the edge technology is confirmed.
+#
+# References: routing-table.md contract, FR-001, FR-012, AC-010, AC-013
+# Transformation: split-petclinic-into-microserv-bbbd6b99
+# Plan item: E3-S9 / GH-129
+
+version: split-petclinic-20261019-001
+
+metadata:
+  transformation: split-petclinic-into-microserv-bbbd6b99
+  plan-item: E3-S9 / GH-129
+  artefact-type: flip
+  revert-version: split-petclinic-20261019-002
+
+upstreams:
+  vets:
+    # NEEDS CLARIFICATION: target address and port depend on edge technology and E4-S5
+    target: vets-service:8080
+    connect_timeout: 1s
+    read_timeout: 10s
+  owners:
+    # NEEDS CLARIFICATION: target address and port depend on edge technology and E4-S5
+    target: owners-service:8080
+    connect_timeout: 1s
+    read_timeout: 30s
+
+routes:
+  # Rule 1 — Block operational paths (highest priority)
+  - match:
+      paths:
+        - exact: /actuator
+        - prefix: /actuator/
+        - exact: /livez
+        - exact: /readyz
+    action: return_404
+    forward_to_upstream: none
+
+  # Rule 2 — Route /vets.html to Vets service (S3 flip)
+  - match:
+      path: exact:/vets.html
+    action: proxy
+    upstream: vets
+    retry:
+      methods: [GET, HEAD]
+      attempts: 1
+      jitter: true
+    circuit_breaker:
+      upstream: vets
+      open_response: 503
+      open_headers:
+        Retry-After: "30"
+
+  # Rule 3 — Route /vets to Vets service (S3 flip)
+  - match:
+      path: exact:/vets
+    action: proxy
+    upstream: vets
+    retry:
+      methods: [GET, HEAD]
+      attempts: 1
+      jitter: true
+    circuit_breaker:
+      upstream: vets
+      open_response: 503
+      open_headers:
+        Retry-After: "30"
+
+  # Rule 4 — Route static assets and webjars
+  # NEEDS CLARIFICATION: pending E3-S3 resolution (DEF-4)
+  - match:
+      paths:
+        - prefix: /resources/
+        - prefix: /webjars/
+    action: proxy
+    upstream: owners
+    retry:
+      methods: [GET, HEAD]
+      attempts: 1
+      jitter: true
+
+  # Rule 5 — Default: route everything else to Owners service
+  - match:
+      path: prefix:/
+    action: proxy
+    upstream: owners
+    retry:
+      methods: [GET, HEAD]
+      attempts: 1
+      jitter: true
+    no_retry_methods: [POST, PUT, DELETE]
