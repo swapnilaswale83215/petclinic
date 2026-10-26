@@ -404,6 +404,24 @@ description: "Task list template for feature implementation"
 
 ---
 
+## Phase 9: GH-129 — S3 Route Flip and Rollback Implementation (E3-S9, SPEC-INT-12)
+
+**Purpose**: Implement the versioned routing table artefact, CI gates, operator status mechanism, and rehearsal evidence pipeline required by GH-129. All tasks in this phase depend on the edge technology decision (T109) being resolved.
+
+- [ ] T173 Implement `version` field in `edge/routing-table.yml` (flip artefact). Add the `version` field using the `split-petclinic-YYYYMMDD-NNN` scheme defined in the Routing Table Versioning contract section. The flip artefact version must be distinct from the revert artefact version. References: Routing Table Versioning section, AC-013. NEEDS CLARIFICATION: path and field syntax depend on edge technology (research item 5a) — file: `edge/routing-table.yml`
+
+- [ ] T174 Create PR description template at `.github/PULL_REQUEST_TEMPLATE/routing-table-change.md` containing the two required structured metadata fields: `transformation: split-petclinic-into-microserv-bbbd6b99` and `plan-item: E3-S9 / GH-129`. Both the flip PR and the revert PR must use this template. References: Change Record Metadata contract section, AC-008, AC-009 — file: `.github/PULL_REQUEST_TEMPLATE/routing-table-change.md`
+
+- [ ] T175 Create CI diff gate workflow at `.github/workflows/routing-table-diff-gate.yml`. The workflow diffs the routing table artefact before and after the flip, asserts only `/vets` and `/vets.html` entries are changed, and fails the pipeline if any other routing rule is modified. Must run as a required status check on the flip PR. References: Change Isolation Invariant contract section, AC-010. NEEDS CLARIFICATION: diff command depends on edge technology (research item 5a) — file: `.github/workflows/routing-table-diff-gate.yml`
+
+- [ ] T176 Create status mechanism script at `edge/scripts/check-routing-version.sh`. The script queries the active routing table version on all edge/proxy nodes and returns a version identifier in `split-petclinic-YYYYMMDD-NNN` format. The returned identifier must be programmatically comparable against the deploy metadata version. References: Routing Table Status Mechanism contract section, AC-013. NEEDS CLARIFICATION: query command depends on edge technology (research item 5a) — file: `edge/scripts/check-routing-version.sh`
+
+- [ ] T177 Create or update CI rehearsal workflow at `.github/workflows/s3-rehearsal.yml`. Add an artefact upload step after the S3 rehearsal that persists: (i) flip and revert timing measurements, (ii) zero-failed-request counts for owner routes, and (iii) golden-master diff output for `/vets` and `/vets.html`. The step must fail if any of the three artefact types is absent or empty. Configure artefact retention to exceed the post-G2 audit window. References: Rehearsal Evidence Requirements contract section, AC-012 — file: `.github/workflows/s3-rehearsal.yml`
+
+- [ ] T178 Configure the pre-staging gate as a CI required status check on the flip PR. Implement a GitHub Actions workflow step (or equivalent CI check) that: (a) queries the GitHub API to verify a revert PR exists targeting the same base branch, (b) confirms the revert PR has at least one approving review and no requested changes, (c) confirms the revert PR is in a mergeable state (no merge conflicts), and (d) fails the flip PR pipeline with a descriptive error message if any of conditions (a)–(c) is not met. The check must be registered as a required status check in the repository branch protection rules for the routing-table change branch. References: Pre-Staging Gate contract section, AC-011 — file: `.github/workflows/routing-table-diff-gate.yml` (add job) or a dedicated workflow
+
+---
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies
