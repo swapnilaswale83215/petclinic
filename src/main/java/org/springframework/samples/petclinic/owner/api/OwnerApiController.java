@@ -15,6 +15,7 @@
  */
 package org.springframework.samples.petclinic.owner.api;
 
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 
@@ -31,13 +32,14 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * REST controller for the owner read API (Stories 1 and 2).
+ * REST controller for the owner read API (Stories 1, 2 and 3).
  *
  * <p>GET /api/owners/{id} returns 200 with exactly five owner fields, or 404 with
  * {"message":"Not found"}. GET /api/owners?lastName=X returns a paginated envelope or
- * 400 with {"message":"lastName is required"} when lastName is missing or blank. No
- * other HTTP method is mapped. No CORS annotation is present. No @ControllerAdvice is
- * used.
+ * 400 with {"message":"lastName is required"} when lastName is missing or blank.
+ * GET /api/owners/{id}/pets returns 200 with a sorted list of pet items, or 404 with
+ * {"message":"Not found"}. No other HTTP method is mapped. No CORS annotation is
+ * present. No @ControllerAdvice is used.
  */
 @RestController
 class OwnerApiController {
@@ -58,6 +60,24 @@ class OwnerApiController {
 		return ResponseEntity
 			.ok(new OwnerResponse(owner.getFirstName(), owner.getLastName(), owner.getAddress(), owner.getCity(),
 					owner.getTelephone()));
+	}
+
+	@GetMapping("/api/owners/{id}/pets")
+	ResponseEntity<?> getOwnerPets(@PathVariable("id") int id) {
+		Optional<Owner> optionalOwner = this.owners.findById(id);
+		if (optionalOwner.isEmpty()) {
+			return ResponseEntity.status(404).body(new ApiMessage("Not found"));
+		}
+		Owner owner = optionalOwner.get();
+		List<PetResponse> pets = owner.getPets()
+			.stream()
+			.map(pet -> new PetResponse(pet.getId(), pet.getName(),
+					pet.getBirthDate() != null ? pet.getBirthDate().toString() : null,
+					pet.getType() != null ? pet.getType().getName() : null))
+			.sorted(Comparator.comparing(PetResponse::name, Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER))
+				.thenComparing(PetResponse::id, Comparator.nullsLast(Comparator.<Integer>naturalOrder())))
+			.toList();
+		return ResponseEntity.ok(pets);
 	}
 
 	@GetMapping("/api/owners")
