@@ -15,10 +15,13 @@
  */
 package org.springframework.samples.petclinic.owner.api;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.samples.petclinic.owner.Pet;
+import org.springframework.samples.petclinic.owner.PetType;
 import org.junit.jupiter.api.condition.DisabledInNativeImage;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -94,6 +97,19 @@ class OwnerApiControllerTests {
 		o.setCity(city);
 		o.setTelephone(tel);
 		return o;
+	}
+
+	private Pet makePet(int id, String name, LocalDate birthDate, String typeName) {
+		Pet pet = new Pet();
+		pet.setId(id);
+		pet.setName(name);
+		pet.setBirthDate(birthDate);
+		if (typeName != null) {
+			PetType type = new PetType();
+			type.setName(typeName);
+			pet.setType(type);
+		}
+		return pet;
 	}
 
 	@Test
@@ -309,6 +325,105 @@ class OwnerApiControllerTests {
 		assertEquals("page", components[1].getName());
 		assertEquals("size", components[2].getName());
 		assertEquals("total", components[3].getName());
+	}
+
+	@Test
+	void petsOrderedByNameCaseInsensitiveNullsLast() throws Exception {
+		Owner owner = syntheticOwner();
+		owner.addPet(makePet(7, "bella", null, null));
+		owner.addPet(makePet(3, "Alpha", null, null));
+		owner.addPet(makePet(1, "Zed", null, null));
+		owner.addPet(makePet(9, null, null, null));
+		given(this.owners.findById(KNOWN_ID)).willReturn(Optional.of(owner));
+
+		mockMvc.perform(get("/api/owners/{id}/pets", KNOWN_ID))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$", hasSize(4)))
+			.andExpect(jsonPath("$[0].name").value("Alpha"))
+			.andExpect(jsonPath("$[1].name").value("bella"))
+			.andExpect(jsonPath("$[2].name").value("Zed"))
+			.andExpect(jsonPath("$[3].name").value((Object) null));
+	}
+
+	@Test
+	void unknownOwnerReturnsPets404() throws Exception {
+		given(this.owners.findById(99)).willReturn(Optional.empty());
+
+		mockMvc.perform(get("/api/owners/{id}/pets", 99))
+			.andExpect(status().isNotFound())
+			.andExpect(jsonPath("$.message").value("Not found"))
+			.andExpect(jsonPath("$.*", hasSize(1)));
+	}
+
+	@Test
+	void ownerWithNoPetsReturns200EmptyArray() throws Exception {
+		given(this.owners.findById(KNOWN_ID)).willReturn(Optional.of(syntheticOwner()));
+
+		mockMvc.perform(get("/api/owners/{id}/pets", KNOWN_ID))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$", hasSize(0)));
+	}
+
+	@Test
+	void petsWithEqualNameOrderedById() throws Exception {
+		Owner owner = syntheticOwner();
+		owner.addPet(makePet(5, "Buddy", null, null));
+		owner.addPet(makePet(2, "Buddy", null, null));
+		given(this.owners.findById(KNOWN_ID)).willReturn(Optional.of(owner));
+
+		mockMvc.perform(get("/api/owners/{id}/pets", KNOWN_ID))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$[0].id").value(2))
+			.andExpect(jsonPath("$[1].id").value(5));
+	}
+
+	@Test
+	void nullBirthDateAndTypeDoNotCause500() throws Exception {
+		Owner owner = syntheticOwner();
+		owner.addPet(makePet(1, "Fluffy", null, null));
+		given(this.owners.findById(KNOWN_ID)).willReturn(Optional.of(owner));
+
+		mockMvc.perform(get("/api/owners/{id}/pets", KNOWN_ID))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$[0].birthDate").value((Object) null))
+			.andExpect(jsonPath("$[0].type").value((Object) null));
+	}
+
+	@Test
+	void petItemHasExactlyFourFieldsNoOwnerNoVisits() throws Exception {
+		Owner owner = syntheticOwner();
+		owner.addPet(makePet(1, "Fluffy", null, null));
+		given(this.owners.findById(KNOWN_ID)).willReturn(Optional.of(owner));
+
+		mockMvc.perform(get("/api/owners/{id}/pets", KNOWN_ID))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$[0].*", hasSize(4)))
+			.andExpect(jsonPath("$[0].owner").doesNotExist())
+			.andExpect(jsonPath("$[0].visits").doesNotExist());
+	}
+
+	@Test
+	void petFieldByFieldReconciliation() throws Exception {
+		Owner owner = syntheticOwner();
+		owner.addPet(makePet(3, "Alpha", LocalDate.of(2019, 3, 15), "cat"));
+		given(this.owners.findById(KNOWN_ID)).willReturn(Optional.of(owner));
+
+		mockMvc.perform(get("/api/owners/{id}/pets", KNOWN_ID))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$[0].id").value(3))
+			.andExpect(jsonPath("$[0].name").value("Alpha"))
+			.andExpect(jsonPath("$[0].birthDate").value("2019-03-15"))
+			.andExpect(jsonPath("$[0].type").value("cat"));
+	}
+
+	@Test
+	void petResponseRecordComponentNames() {
+		var components = PetResponse.class.getRecordComponents();
+		assertEquals(4, components.length);
+		assertEquals("id", components[0].getName());
+		assertEquals("name", components[1].getName());
+		assertEquals("birthDate", components[2].getName());
+		assertEquals("type", components[3].getName());
 	}
 
 }
