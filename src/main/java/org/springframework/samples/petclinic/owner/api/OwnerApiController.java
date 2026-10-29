@@ -15,21 +15,29 @@
  */
 package org.springframework.samples.petclinic.owner.api;
 
+import java.util.List;
 import java.util.Optional;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.samples.petclinic.owner.Owner;
 import org.springframework.samples.petclinic.owner.OwnerRepository;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * REST controller for the owner read API (Story 1).
+ * REST controller for the owner read API (Stories 1 and 2).
  *
  * <p>GET /api/owners/{id} returns 200 with exactly five owner fields, or 404 with
- * {"message":"Not found"}. No other HTTP method is mapped. No CORS annotation is
- * present. No @ControllerAdvice is used.
+ * {"message":"Not found"}. GET /api/owners?lastName=X returns a paginated envelope or
+ * 400 with {"message":"lastName is required"} when lastName is missing or blank. No
+ * other HTTP method is mapped. No CORS annotation is present. No @ControllerAdvice is
+ * used.
  */
 @RestController
 class OwnerApiController {
@@ -50,6 +58,24 @@ class OwnerApiController {
 		return ResponseEntity
 			.ok(new OwnerResponse(owner.getFirstName(), owner.getLastName(), owner.getAddress(), owner.getCity(),
 					owner.getTelephone()));
+	}
+
+	@GetMapping("/api/owners")
+	ResponseEntity<?> searchOwners(@RequestParam(required = false) String lastName,
+			@RequestParam(defaultValue = "1") int page) {
+		if (lastName == null || lastName.strip().isEmpty()) {
+			return ResponseEntity.status(400).body(new ApiMessage("lastName is required"));
+		}
+		String trimmed = lastName.strip();
+		int safePage = Math.max(1, page);
+		Pageable pageable = PageRequest.of(safePage - 1, 5, Sort.by("lastName", "firstName", "id"));
+		Page<Owner> result = this.owners.findByLastNameStartingWith(trimmed, pageable);
+		List<OwnerResponse> content = result.getContent()
+			.stream()
+			.map(o -> new OwnerResponse(o.getFirstName(), o.getLastName(), o.getAddress(), o.getCity(),
+					o.getTelephone()))
+			.toList();
+		return ResponseEntity.ok(new OwnerPage(content, safePage, 5, result.getTotalElements()));
 	}
 
 }
